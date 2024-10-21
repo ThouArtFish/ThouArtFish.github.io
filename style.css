@@ -1,6 +1,5 @@
 body {
-    display: flex;
-    justify-content: space-evenly;
+    margin: 0px;
 }
 #display {
     background-color: black;
