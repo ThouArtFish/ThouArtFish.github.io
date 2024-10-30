@@ -4,3 +4,9 @@ body {
 #display {
     background-color: black;
 }
+@font-face {
+    font-family: "mainfont";
+    src: url("ARCADECLASSIC.TTF");
+    font-weight: normal;
+    font-style: normal;
+}
