@@ -1,7 +1,6 @@
 export default class MainMenuState {
     constructor(...args) {
         const [{display_dimensions}] = args
-        this.display_dimensions = display_dimensions
         this.mouse_coords = []
         this.play_button = {
             top: display_dimensions[1]/2 - 20, 

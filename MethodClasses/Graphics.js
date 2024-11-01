@@ -1,4 +1,4 @@
-import Vector from "/Vector.js"
+import Vector from "./Vector.js"
 
 export default class Graphics {
     static rotateAroundOriginByYX(vertex, trig_vals) {
@@ -38,6 +38,6 @@ export default class Graphics {
                 face_normals[i][1].forEach(e => shown_edges.add(edges[e]))
             }
         }
-        return [...shown_edges]
+        return face_views.length > 0 ? [...shown_edges] : edges
     }
 }
