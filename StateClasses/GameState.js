@@ -76,7 +76,7 @@ export default class GameState {
         this.current_stars = []
 
         //Array of only player lasers for collison checks later
-        let lasers = this.game_objects.filter(e => e.colour == this.laser_colour).map(e => e.position)
+        let lasers = this.game_objects.filter(e => e.colour == this.laser_colour).map(e => [e.position, this.game_objects.indexOf(e)])
 
         // Change in mouse position is translated into change int rotation around x and y axis
         let angle_x = Math.atan(this.delta_coords[1] * this.sensitivity)
@@ -163,16 +163,17 @@ export default class GameState {
             if (obj.colour != this.laser_colour && obj.face_normals.length > 0) {
                 let p1 = Vector.add(obj.position, obj.bounding_box[0])
                 let p2 = Vector.add(obj.position, obj.bounding_box[1])
-                for (let laser of lasers) {
+                for (let l = 0; l < lasers.length; l++) {
                     let within = true
                     for (let k = 0; k < 3; k++) {
-                        if (!(laser[k] < p1[k] && laser[k] > p2[k])) {
+                        if (!(lasers[l][0][k] < p1[k] && lasers[l][0][k] > p2[k])) {
                             within = false
                             break
                         }
                     }
                     if (within) {
                         this.game_objects[i].health -= this.laser_damage
+                        this.game_objects[lasers[l][1]].timer = 0
                         break
                     }
                 }

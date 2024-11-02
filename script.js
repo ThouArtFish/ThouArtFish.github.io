@@ -200,6 +200,6 @@ function updateDisplay(timestamp) {
 main_menu_state.enter()
 //Convoy test
 let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 450)
-game_state.game_objects = Object.spawnConvoy(squip, 5, 40, 0.4, convoy_position)
+game_state.game_objects = Object.spawnConvoy(cubid, 5, 40, 0.3, convoy_position)
 // Lift off!!
 updateDisplay(0)
