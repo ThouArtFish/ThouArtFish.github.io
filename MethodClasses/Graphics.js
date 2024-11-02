@@ -28,6 +28,10 @@ export default class Graphics {
             y = y * y_scale + y_scale
             projected_vertices.push([x, y])
         }
+        if (vertices.length == 1) {
+            let z = Math.min(1, (rtf[2] * (vertices[0][2] - lbn[2])) / ((rtf[2] - lbn[2]) * vertices[0][2]))
+            projected_vertices[0].push(z)
+        }
         return projected_vertices
     }
     static findVisibleEdges(face_views, face_normals, edges) {

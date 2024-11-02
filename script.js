@@ -14,14 +14,19 @@ const squip = {
     vertices: [[0, 1.25, -5], [5, 1.25, 0], [-5, 1.25, 0], [0, 1.25, 5], [0, -3.75, 0]],    
     edges: [[1, 0], [1, 3], [2, 0], [2, 3], [4, 0], [4, 1], [4, 2], [4, 3]],
     face_normals: [[[0, 1.25, 0], [0, 2, 3, 1]], [[1.25, -1.25, 1.25], [5, 7, 1]], [[-1.25, -1.25, 1.25], [7, 3, 6]], [[1.25, -1.25, -1.25], [5, 4, 0]], [[-1.25, -1.25, -1.25], [6, 4, 2]]],
-    bounding_box: [[5, 1.25, 5], [-5, -1.25, -5]]
+    bounding_box: [[7, 3.25, 7], [-7, -3.25, -7]]
 }
 const cubid = {
     vertices: [[-5, -5, -5], [5, -5, -5], [-5, -5, 5], [5, -5, 5], [-5, 5, -5], [5, 5, -5], [-5, 5, 5], [5, 5, 5]],
     edges: [[2, 0], [3, 1], [2, 3], [0, 1], [3, 7], [1, 5], [7, 5], [7, 6], [5, 4], [6, 4], [6, 2], [4, 0]],
     face_normals: [[[0, 5, 0], [6, 9, 7, 8]], [[5, 0, 0], [4, 6, 5, 1]], [[0, -5, 0], [1, 0, 3, 2]], [[-5, 0, 0], [9, 10, 0, 11]], [[0, 0, 5], [7, 4, 10, 2]], [[0, 0, -5], [3, 5, 11, 8]]],
-    bounding_box: [[5, 5, 5], [-5, -5, -5]]
+    bounding_box: [[7, 7, 7], [-7, -7, -7]]
 }
+const health_icon = new Image()
+health_icon.src = "images/health.png"
+const speed_icon = new Image()
+speed_icon.src = "images/speed.png"
+
 
 // global variables
 var lastTime = 0
@@ -83,17 +88,26 @@ game_state.exit = () => {
     window.removeEventListener("mouseup", onMouseUp)
 }
 game_state.drawObject = () => {
-    ctx.lineWidth = game_state.current_colour == "lightblue" || game_state.current_colour == "red"  ? 3 : 1
-    ctx.strokeStyle = game_state.current_colour
-    ctx.beginPath()
-    for (let i = 0; i < game_state.current_edges.length; i++) {
-        let line_start = game_state.current_vertices[game_state.current_edges[i][0]]
-        let line_end = game_state.current_vertices[game_state.current_edges[i][1]]
-        ctx.moveTo(line_start[0], line_start[1])
-        ctx.lineTo(line_end[0], line_end[1])
+    if (game_state.current_colour == game_state.player_laser_colour || game_state.current_colour == game_state.enemy_laser_colour) {
+        let radius = Math.max(1, (1 - game_state.current_vertices[0][2]) * 20)
+        ctx.fillStyle = game_state.current_colour
+        ctx.beginPath()
+        ctx.arc(game_state.current_vertices[0][0], game_state.current_vertices[0][1], radius, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.closePath()
+    } else {
+        ctx.lineWidth = 1
+        ctx.strokeStyle = game_state.current_colour
+        ctx.beginPath()
+        for (let i = 0; i < game_state.current_edges.length; i++) {
+            let line_start = game_state.current_vertices[game_state.current_edges[i][0]]
+            let line_end = game_state.current_vertices[game_state.current_edges[i][1]]
+            ctx.moveTo(line_start[0], line_start[1])
+            ctx.lineTo(line_end[0], line_end[1])
+        }
+        ctx.stroke()
+        ctx.closePath()
     }
-    ctx.stroke()
-    ctx.closePath()
 }
 game_state.drawBackground = () => {
     ctx.fillStyle = "white"
@@ -135,6 +149,11 @@ game_state.drawHUD = () => {
         game_state.radar_centre[0] - 10 * Math.floor(position_display.length/2),
         game_state.radar_centre[1] + game_state.radar_radius + 18
     )
+    ctx.fillText(
+        game_state.hit_counter.toString(),
+        game_state.radar_centre[0],
+        game_state.radar_centre[1] - game_state.radar_radius - 10
+    )
 
     let overheat_meter_height = (game_state.overheat_counter / game_state.max_shots) * game_state.radar_radius * 2
     ctx.fillStyle = overheat_meter_height >= game_state.radar_radius * 2 ? "maroon" : "red"
@@ -142,15 +161,35 @@ game_state.drawHUD = () => {
         game_state.radar_centre[0] + game_state.radar_radius + 10,
         game_state.radar_centre[1] - game_state.radar_radius + (game_state.radar_radius * 2 - overheat_meter_height),
         20,
-        overheat_meter_height,
+        overheat_meter_height,  
     )
+
+    let health_meter_height = (game_state.player_health / 100) * game_state.radar_radius * 2
+    ctx.fillStyle = "green"
+    ctx.fillRect(
+        game_state.radar_centre[0] - game_state.radar_radius - 30,
+        game_state.radar_centre[1] - game_state.radar_radius + (game_state.radar_radius * 2 - health_meter_height),
+        20,
+        health_meter_height,
+    )
+    ctx.drawImage(
+        health_icon, 
+        game_state.radar_centre[0] - game_state.radar_radius - 30, 
+        game_state.radar_centre[1] - game_state.radar_radius - 25
+    )
+
     let speed_meter_height = (game_state.player_speed / game_state.max_speed) * game_state.radar_radius * 2
     ctx.fillStyle = "orange"
     ctx.fillRect(
-        game_state.radar_centre[0] - game_state.radar_radius - 30,
+        game_state.radar_centre[0] - game_state.radar_radius - 60,
         game_state.radar_centre[1] - game_state.radar_radius + (game_state.radar_radius * 2 - speed_meter_height),
         20,
         speed_meter_height
+    )
+    ctx.drawImage(
+        speed_icon, 
+        game_state.radar_centre[0] - game_state.radar_radius - 60, 
+        game_state.radar_centre[1] - game_state.radar_radius - 25
     )
 }
 // Main menu state
@@ -200,6 +239,6 @@ function updateDisplay(timestamp) {
 main_menu_state.enter()
 //Convoy test
 let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 450)
-game_state.game_objects = Object.spawnConvoy(cubid, 5, 40, 0.3, convoy_position)
+game_state.game_objects = Object.spawnConvoy(cubid, 5, 40, 0, convoy_position)
 // Lift off!!
 updateDisplay(0)

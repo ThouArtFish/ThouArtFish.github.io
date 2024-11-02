@@ -38,15 +38,18 @@ export default class GameState {
         this.radar_range = 500
         this.radar_points
 
-        this.fire_rate = 0.4
+        this.fire_rate = 0.3
         this.fire_timer = this.fire_rate
-        this.max_shots = 20
+        this.max_shots = 30
         this.overheat_counter = 0
         this.overheat_active = false
-        this.laser_colour = "lightblue"
         this.laser_damage = 20
+        this.player_laser_colour = "lightblue"
+        this.enemy_laser_colour = "red"
+        this.hit_counter = 0
 
         this.player_position = [0, 0, 0]
+        this.player_health = 100
 
 
         let backgroundObjectPosition = () => {
@@ -76,7 +79,7 @@ export default class GameState {
         this.current_stars = []
 
         //Array of only player lasers for collison checks later
-        let lasers = this.game_objects.filter(e => e.colour == this.laser_colour).map(e => [e.position, this.game_objects.indexOf(e)])
+        let lasers = this.game_objects.filter(e => e.colour == this.player_laser_colour).map(e => [e.position, this.game_objects.indexOf(e)])
 
         // Change in mouse position is translated into change int rotation around x and y axis
         let angle_x = Math.atan(this.delta_coords[1] * this.sensitivity)
@@ -130,8 +133,7 @@ export default class GameState {
         if (this.mouse_down_state["0"] && !this.overheat_active) {
             this.fire_timer -= this.delta_time
             if (this.fire_timer < 0) {
-                let laser_origin = Graphics.rotateAroundOriginByXY([0, 3, 0], trig_vals)
-                this.game_objects.push(Object.spawnLaser(player_velocity, laser_origin, 4, this.laser_colour))
+                this.game_objects.push(Object.spawnLaser(player_velocity, [0, 0, 0], 6, this.player_laser_colour))
                 this.fire_timer = this.fire_rate
                 this.overheat_counter = Math.min(this.max_shots, this.overheat_counter + 1)
             }
@@ -158,9 +160,9 @@ export default class GameState {
             // The total change in position for an object, being the sum of it's velocity and the relative velocity to the player
             let sum_velocity = Vector.add(this.game_objects[i].velocity, player_velocity.map(e => -e)).map(e => e * frame_time)
             this.game_objects[i].position = Vector.add(this.game_objects[i].position, sum_velocity)
-            // Collision check
+            // Collision and attack check for objects other than lasers and debris
             let obj = this.game_objects[i]
-            if (obj.colour != this.laser_colour && obj.face_normals.length > 0) {
+            if (obj.face_normals.length > 0) {
                 let p1 = Vector.add(obj.position, obj.bounding_box[0])
                 let p2 = Vector.add(obj.position, obj.bounding_box[1])
                 for (let l = 0; l < lasers.length; l++) {
@@ -174,8 +176,26 @@ export default class GameState {
                     if (within) {
                         this.game_objects[i].health -= this.laser_damage
                         this.game_objects[lasers[l][1]].timer = 0
+                        this.hit_counter += 1
                         break
                     }
+                }
+                if (Vector.length(obj.position) < 500 && Math.random() > 0.999) {
+                    this.game_objects.push(Object.spawnLaser(player_velocity.map(e => -e), obj.position, 6, this.enemy_laser_colour))
+                }
+            }
+            // Player damage check
+            if (obj.colour == this.enemy_laser_colour) {
+                let within = true
+                for (let k = 0; k < 3; k++) {
+                    if(!(Math.abs(obj.position[k]) < 20)) {
+                        within = false
+                        break
+                    }
+                }
+                if (within) {
+                    this.player_health -= 5
+                    this.game_objects[i].timer = 0
                 }
             }
             // Object calculations

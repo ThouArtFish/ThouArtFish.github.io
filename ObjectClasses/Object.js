@@ -20,12 +20,12 @@ export default class Object {
     static spawnLaser(direction, position, speed, colour) {
         let game_object = {
             colour: colour,
-            vertices: [[0, 0, 0], Vector.scale(direction, -5)],
+            vertices: [[0, 0, 0]],
             position: position,
-            edges: [[0, 1]],
+            edges: [],
             velocity: Vector.scale(direction, speed),
             face_normals: [],
-            timer: 7,
+            timer: 5,
             health: 1
         }
         return game_object
@@ -53,9 +53,9 @@ export default class Object {
                 vertices: object.vertices,
                 position: object.position,
                 edges: debris_edges,
-                velocity: Vector.scale(face_info[0], speed),
+                velocity: Vector.add(Vector.scale(face_info[0], speed), object.velocity),
                 face_normals: [],
-                timer: 2.5,
+                timer: 3,
                 health: 1
             }
             total_debris.push(game_object)
