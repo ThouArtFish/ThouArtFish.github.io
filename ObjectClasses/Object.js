@@ -3,58 +3,54 @@ import Vector from "../MethodClasses/Vector.js"
 
 export default class Object {
     static spawnIndividual(...args) {
-        const [{obj, col, pos, vel, timer, health}] = args
+        const [{tag, struct_name, col, pos, vel, timer, health}] = args
         let game_object = {
+            tag: tag,
+            structure_name: struct_name,
             colour: col,
-            vertices: obj.vertices,
             position: pos,
-            edges: obj.edges,
-            bounding_box: obj.bounding_box,
             velocity: vel,
-            face_normals: obj.face_normals,
             timer: timer,
             health: health
         }
         return game_object
     }
-    static spawnLaser(direction, position, speed, colour) {
+    static spawnLaser(side, direction, position, speed, colour) {
         let game_object = {
+            tag: side + "_laser",
             colour: colour,
-            vertices: [[0, 0, 0]],
             position: position,
-            edges: [],
             velocity: Vector.scale(direction, speed),
-            face_normals: [],
             timer: 5,
             health: 1
         }
         return game_object
     }
-    static spawnConvoy(object, count, radius, speed, centre_position) {
+    static spawnConvoy(struct_name, count, radius, speed, centre_position) {
         let convoy = []
         let velocity = Vector.scale(centre_position, -speed)
         for (let i = 0; i < count; i++) {
             let angle = (Math.PI * 2 * i) / count
             let centre_offset = Graphics.rotateAroundOriginByYX([0, 0, radius], {cosx: 1, sinx: 0, cosy: Math.cos(angle), siny: Math.sin(angle)})
             let spawn_position = Vector.add(centre_position, centre_offset)
-            convoy.push(this.spawnIndividual({obj: object, pos: spawn_position, vel: velocity, col: "white", timer: 240, health: 100}))
+            convoy.push(this.spawnIndividual({tag: "enemy", struct_name: struct_name, pos: spawn_position, vel: velocity, col: "white", timer: 240, health: 100}))
         }
         return convoy
     }
-    static spawnDebris(object, speed) {
+    static spawnDebris(structure, object, speed) {
         let total_debris = []
-        for (let face_info of object.face_normals) {
+        for (let face_info of structure.face_normals) {
             let debris_edges = []
             for (let edge_index of face_info[1]) {
-                debris_edges.push(object.edges[edge_index])
+                debris_edges.push(structure.edges[edge_index])
             }
             let game_object = {
+                tag: "debris",
                 colour: object.colour,
-                vertices: object.vertices,
+                vertices: structure.vertices,
                 position: object.position,
                 edges: debris_edges,
                 velocity: Vector.add(Vector.scale(face_info[0], speed), object.velocity),
-                face_normals: [],
                 timer: 3,
                 health: 1
             }

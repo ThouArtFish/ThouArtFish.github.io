@@ -35,13 +35,17 @@ export default class Graphics {
         return projected_vertices
     }
     static findVisibleEdges(face_views, face_normals, edges) {
-        let shown_edges = new Set();
-        for (let i = 0; i < face_normals.length; i++) {
-            let dot_prod = Vector.dot(face_views[i], face_normals[i][0])
-            if (dot_prod < 0) {
-                face_normals[i][1].forEach(e => shown_edges.add(edges[e]))
+        if (face_views.length == 0) {
+            return edges
+        } else {
+            let shown_edges = new Set();
+            for (let i = 0; i < face_normals.length; i++) {
+                let dot_prod = Vector.dot(face_views[i], face_normals[i][0])
+                if (dot_prod < 0) {
+                    face_normals[i][1].forEach(e => shown_edges.add(edges[e]))
+                }
             }
+            return [...shown_edges]
         }
-        return face_views.length > 0 ? [...shown_edges] : edges
     }
 }
