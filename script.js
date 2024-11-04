@@ -17,7 +17,7 @@ speed_icon.src = "images/speed.png"
 
 
 // global variables
-var lastTime = 0
+var last_time = 0
 var mouse_timer
 var current_state
 
@@ -76,25 +76,36 @@ game_state.exit = () => {
     window.removeEventListener("mouseup", onMouseUp)
 }
 game_state.drawObject = () => {
-    if (game_state.current_vertices.length == 1) {
-        let radius = Math.max(1, (1 - game_state.current_vertices[0][2]) * 20)
-        ctx.fillStyle = game_state.current_colour
+    let render_object = game_state.current_render
+    if (render_object.vertices.length == 1) {
+        let radius = Math.max(1, (1 - render_object.vertices[0][2]) * 20)
+        ctx.fillStyle = render_object.colour
         ctx.beginPath()
-        ctx.arc(game_state.current_vertices[0][0], game_state.current_vertices[0][1], radius, 0, Math.PI * 2)
+        ctx.arc(render_object.vertices[0][0], render_object.vertices[0][1], radius, 0, Math.PI * 2)
         ctx.fill()
         ctx.closePath()
     } else {
-        ctx.lineWidth = game_state.current_vertices.length == 2 ? 3 : 1
-        ctx.strokeStyle = game_state.current_colour
+        ctx.lineWidth = 1
+        ctx.strokeStyle = render_object.colour
         ctx.beginPath()
-        for (let i = 0; i < game_state.current_edges.length; i++) {
-            let line_start = game_state.current_vertices[game_state.current_edges[i][0]]
-            let line_end = game_state.current_vertices[game_state.current_edges[i][1]]
+        for (let i = 0; i < render_object.edges.length; i++) {
+            let line_start = render_object.vertices[render_object.edges[i][0]]
+            let line_end = render_object.vertices[render_object.edges[i][1]]
             ctx.moveTo(line_start[0], line_start[1])
             ctx.lineTo(line_end[0], line_end[1])
         }
         ctx.stroke()
         ctx.closePath()
+        if (render_object.lock_info[0] > 0 && !render_object.lock_info[2]) {
+            ctx.strokeStyle = render_object.lock_info[1]
+            let l = render_object.vertices.length
+            ctx.strokeRect(
+                render_object.vertices[l - 1][0] - 30,
+                render_object.vertices[l - 1][1] - 30,
+                60,
+                60
+            )
+        }
     }
 }
 game_state.drawBackground = () => {
@@ -107,71 +118,93 @@ game_state.drawBackground = () => {
     }
 }
 game_state.drawHUD = () => {
+    ctx.font = "20px mainfont"
     ctx.lineWidth = 1
-    ctx.beginPath()
     ctx.strokeStyle = "yellow"
-    ctx.arc(game_state.radar_centre[0], game_state.radar_centre[1], game_state.radar_radius, 0, Math.PI * 2)
-    ctx.moveTo(game_state.radar_centre[0], game_state.radar_centre[1] - game_state.radar_radius)
-    ctx.lineTo(game_state.radar_centre[0], game_state.radar_centre[1] + game_state.radar_radius)
-    ctx.moveTo(game_state.radar_centre[0] - game_state.radar_radius, game_state.radar_centre[1])
-    ctx.lineTo(game_state.radar_centre[0] + game_state.radar_radius, game_state.radar_centre[1])
+    ctx.beginPath()
     ctx.moveTo(canvas.width/2, canvas.height/2 - 25)
     ctx.lineTo(canvas.width/2, canvas.height/2 + 25)
     ctx.moveTo(canvas.width/2 - 25, canvas.height/2)
     ctx.lineTo(canvas.width/2 + 25, canvas.height/2)
     ctx.stroke()
     ctx.closePath()
+
+    ctx.translate(game_state.radar_centre[0], game_state.radar_centre[1])
+    ctx.beginPath()
+    ctx.arc(0, 0, game_state.radar_radius, 0, Math.PI * 2)
+    ctx.moveTo(0, -game_state.radar_radius)
+    ctx.lineTo(0, game_state.radar_radius)
+    ctx.moveTo(-game_state.radar_radius, 0)
+    ctx.lineTo(game_state.radar_radius, 0)
+    ctx.stroke()
+    ctx.closePath()
     ctx.fillStyle = "red"
     for (let point of game_state.radar_points) {
         ctx.beginPath()
-        ctx.arc(point[0] + game_state.radar_centre[0], point[1] + game_state.radar_centre[1], 2, 0, Math.PI * 2)
+        ctx.arc(point[0], point[1], 2, 0, Math.PI * 2)
         ctx.fill()
         ctx.closePath()
     }
 
-    ctx.font = "20px mainfont"
     let overheat_meter_height = (game_state.overheat_counter / game_state.max_shots) * game_state.radar_radius * 2
     ctx.fillStyle = overheat_meter_height >= game_state.radar_radius * 2 ? "maroon" : "red"
     ctx.fillRect(
-        game_state.radar_centre[0] + game_state.radar_radius + 10,
-        game_state.radar_centre[1] - game_state.radar_radius + (game_state.radar_radius * 2 - overheat_meter_height),
+        game_state.radar_radius + 40,
+        -game_state.radar_radius + (game_state.radar_radius * 2 - overheat_meter_height),
         20,
         overheat_meter_height,  
     )
     ctx.fillText(
         "LMG",
-        game_state.radar_centre[0] + game_state.radar_radius + 10,
-        game_state.radar_centre[1] - game_state.radar_radius - 25,
+        game_state.radar_radius + 40,
+        -game_state.radar_radius - 25,
+        20
+    )
+
+    let missile_meter_height = (game_state.missiles_left / game_state.max_missiles) * game_state.radar_radius * 2
+    ctx.fillStyle = "grey"
+    ctx.fillRect(
+        game_state.radar_radius + 10,
+        -game_state.radar_radius + (game_state.radar_radius * 2 - missile_meter_height),
+        20,
+        missile_meter_height,  
+    )
+    ctx.fillText(
+        "HSM",
+        game_state.radar_radius + 10,
+        -game_state.radar_radius - 25,
         20
     )
 
     let health_meter_height = (game_state.player_health / 100) * game_state.radar_radius * 2
     ctx.fillStyle = "green"
     ctx.fillRect(
-        game_state.radar_centre[0] - game_state.radar_radius - 30,
-        game_state.radar_centre[1] - game_state.radar_radius + (game_state.radar_radius * 2 - health_meter_height),
+        -game_state.radar_radius - 30,
+        -game_state.radar_radius + (game_state.radar_radius * 2 - health_meter_height),
         20,
         health_meter_height,
     )
     ctx.drawImage(
         health_icon, 
-        game_state.radar_centre[0] - game_state.radar_radius - 30, 
-        game_state.radar_centre[1] - game_state.radar_radius - 25
+        -game_state.radar_radius - 30, 
+        -game_state.radar_radius - 25
     )
 
     let speed_meter_height = (game_state.player_speed / game_state.max_speed) * game_state.radar_radius * 2
     ctx.fillStyle = "orange"
     ctx.fillRect(
-        game_state.radar_centre[0] - game_state.radar_radius - 60,
-        game_state.radar_centre[1] - game_state.radar_radius + (game_state.radar_radius * 2 - speed_meter_height),
+        -game_state.radar_radius - 60,
+        -game_state.radar_radius + (game_state.radar_radius * 2 - speed_meter_height),
         20,
         speed_meter_height
     )
     ctx.drawImage(
         speed_icon, 
-        game_state.radar_centre[0] - game_state.radar_radius - 60, 
-        game_state.radar_centre[1] - game_state.radar_radius - 25
+        -game_state.radar_radius - 60, 
+        -game_state.radar_radius - 25
     )
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
 // Main menu state
 var main_menu_state = new MainMenuState({display_dimensions: [canvas.width, canvas.height]})
@@ -209,8 +242,8 @@ function updateDisplay(timestamp) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    current_state.delta_time = (timestamp - lastTime) * (1/1000)
-    lastTime = timestamp
+    current_state.delta_time = (timestamp - last_time) * (1/1000)
+    last_time = timestamp
 
     current_state.mainLoop()
 
@@ -219,7 +252,7 @@ function updateDisplay(timestamp) {
 // Startup stuff
 main_menu_state.enter()
 //Convoy test
-let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 450)
-game_state.game_objects = Object.spawnConvoy("pyramid", 6, 40, 0.5, convoy_position)
+let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 500)
+game_state.game_objects = Object.spawnConvoy("cube", 8, 40, 0.8, convoy_position)
 // Lift off!!
 updateDisplay(0)

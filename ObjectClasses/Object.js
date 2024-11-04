@@ -11,7 +11,8 @@ export default class Object {
             position: pos,
             velocity: vel,
             timer: timer,
-            health: health
+            health: health,
+            lock_tag: -1
         }
         return game_object
     }
@@ -23,6 +24,18 @@ export default class Object {
             velocity: Vector.scale(direction, speed),
             timer: 5,
             health: 1
+        }
+        return game_object
+    }
+    static spawnMissile(direction, speed, colour, timer, locking_counter) {
+        let game_object = {
+            tag: "missile",
+            colour: colour,
+            position: [0, 0, 0],
+            velocity: Vector.scale(direction, speed),
+            timer: timer,
+            health: 1,
+            lock_tag: locking_counter
         }
         return game_object
     }
