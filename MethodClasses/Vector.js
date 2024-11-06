@@ -2,6 +2,9 @@ export default class Vector {
     static add(v1, v2) {
         return [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]]
     }
+    static subtract(v1, v2) {
+        return [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]]
+    }
     static dot(v1, v2) {
         return (v1[0] * v2[0]) + (v1[1] * v2[1]) + (v1[2] * v2[2])
     }

@@ -30,6 +30,12 @@ function detectMouseMovement(e) {
 function detectMousePosition(e) {
     main_menu_state.mouse_coords = [e.clientX, e.clientY]
 }
+function onWindowResize(e) {
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    game_state.display_dimensions = [canvas.width, canvas.height]
+    game_state.radar_centre = [canvas.width * 0.5, canvas.height * 0.85]
+}
 function onKeyDown(e) {
     game_state.key_down_state[e.code] = true
 }
@@ -53,6 +59,13 @@ function onMenuClick() {
         game_state.enter()
     }
 }
+// Util
+function hsl2rgb(h,s,l) {
+    let a=s*Math.min(l,1-l)
+    let f= (n,k=(n+h/30)%12) => l - a*Math.max(Math.min(k-3,9-k,1),-1)
+    let rgb = [f(0),f(8),f(4)].map((e) => Math.round(e * 255).toString(16)) 
+    return "#" + rgb[0] + rgb[1] + rgb[2]
+}   
 
 // GameState
 var game_state = new GameState({display_dimensions: [canvas.width, canvas.height]})
@@ -78,30 +91,32 @@ game_state.exit = () => {
 game_state.drawObject = () => {
     let render_object = game_state.current_render
     if (render_object.vertices.length == 1) {
-        let radius = Math.max(1, (1 - render_object.vertices[0][2]) * 20)
+        let radius = Math.max(2, (1 - render_object.vertices[0][2]) * 20)
         ctx.fillStyle = render_object.colour
         ctx.beginPath()
         ctx.arc(render_object.vertices[0][0], render_object.vertices[0][1], radius, 0, Math.PI * 2)
         ctx.fill()
         ctx.closePath()
     } else {
+        ctx.fillStyle = render_object.colour
         ctx.lineWidth = 1
-        ctx.strokeStyle = render_object.colour
-        ctx.beginPath()
-        for (let i = 0; i < render_object.edges.length; i++) {
-            let line_start = render_object.vertices[render_object.edges[i][0]]
-            let line_end = render_object.vertices[render_object.edges[i][1]]
-            ctx.moveTo(line_start[0], line_start[1])
-            ctx.lineTo(line_end[0], line_end[1])
+        ctx.strokeStyle = "black"
+        for (let sequence of render_object.faces) {
+            ctx.beginPath()
+            ctx.moveTo(render_object.vertices[sequence[0]][0], render_object.vertices[sequence[0]][1])
+            for (let i = 1; i < sequence.length; i++) {
+                ctx.lineTo(render_object.vertices[sequence[i]][0], render_object.vertices[sequence[i]][1])
+            }
+            ctx.closePath()
+            ctx.stroke()
+            ctx.fill()
         }
-        ctx.stroke()
-        ctx.closePath()
+
         if (render_object.lock_info[0] > 0 && !render_object.lock_info[2]) {
             ctx.strokeStyle = render_object.lock_info[1]
-            let l = render_object.vertices.length
             ctx.strokeRect(
-                render_object.vertices[l - 1][0] - 30,
-                render_object.vertices[l - 1][1] - 30,
+                render_object.centre[0] - 30,
+                render_object.centre[1] - 30,
                 60,
                 60
             )
@@ -251,8 +266,9 @@ function updateDisplay(timestamp) {
 }
 // Startup stuff
 main_menu_state.enter()
+window.addEventListener("resize", onWindowResize)
 //Convoy test
 let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 500)
-game_state.game_objects = Object.spawnConvoy("cube", 8, 40, 0.8, convoy_position)
+game_state.game_objects = Object.spawnConvoy("cube", 8, 40, 0.7, convoy_position)
 // Lift off!!
 updateDisplay(0)

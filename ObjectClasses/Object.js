@@ -46,25 +46,25 @@ export default class Object {
             let angle = (Math.PI * 2 * i) / count
             let centre_offset = Graphics.rotateAroundOriginByYX([0, 0, radius], {cosx: 1, sinx: 0, cosy: Math.cos(angle), siny: Math.sin(angle)})
             let spawn_position = Vector.add(centre_position, centre_offset)
-            convoy.push(this.spawnIndividual({tag: "enemy", struct_name: struct_name, pos: spawn_position, vel: velocity, col: "white", timer: 240, health: 100}))
+            convoy.push(this.spawnIndividual({tag: "enemy", struct_name: struct_name, pos: spawn_position, vel: velocity, col: "cyan", timer: 240, health: 100}))
         }
         return convoy
     }
     static spawnDebris(structure, object, speed) {
         let total_debris = []
-        for (let face_info of structure.face_normals) {
-            let debris_edges = []
-            for (let edge_index of face_info[1]) {
-                debris_edges.push(structure.edges[edge_index])
+        for (let face_info of structure.faces) {
+            let debris_vertices = []
+            for (let vertex of structure.vertices) {
+                debris_vertices.push(Vector.subtract(vertex, face_info[0]))
             }
             let game_object = {
                 tag: "debris",
                 colour: object.colour,
-                vertices: structure.vertices,
-                position: object.position,
-                edges: debris_edges,
-                velocity: Vector.add(Vector.scale(face_info[0], speed), object.velocity),
-                timer: 3,
+                vertices: debris_vertices,
+                edges: face_info[1],
+                position: Vector.add(object.position, face_info[0]),
+                velocity: Vector.scale(face_info[0], speed),
+                timer: 2.5,
                 health: 1
             }
             total_debris.push(game_object)

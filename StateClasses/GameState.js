@@ -4,19 +4,30 @@ import Object from "../ObjectClasses/Object.js"
 
 export default class GameState {
     constructor(...args) {
-        const [{display_dimensions, sens = 0.0008, lbn = [-20, 20, 20], rtf = [20, -20, 300], star_count = 60}] = args
+        const [{display_dimensions, sens = 0.0008, lbn = [-20, 20, 20], rtf = [20, -20, 1000], star_count = 60}] = args
 
         this.structures = {
             "cube": {
                 vertices: [[-5, -5, -5], [5, -5, -5], [-5, -5, 5], [5, -5, 5], [-5, 5, -5], [5, 5, -5], [-5, 5, 5], [5, 5, 5]],
-                edges: [[2, 0], [3, 1], [2, 3], [0, 1], [3, 7], [1, 5], [7, 5], [7, 6], [5, 4], [6, 4], [6, 2], [4, 0]],
-                face_normals: [[[0, 5, 0], [6, 9, 7, 8]], [[5, 0, 0], [4, 6, 5, 1]], [[0, -5, 0], [1, 0, 3, 2]], [[-5, 0, 0], [9, 10, 0, 11]], [[0, 0, 5], [7, 4, 10, 2]], [[0, 0, -5], [3, 5, 11, 8]]],
+                faces: [
+                    [[0, 5, 0], [5, 7, 6, 4]], 
+                    [[5, 0, 0], [3, 7, 5, 1]], 
+                    [[0, -5, 0], [3, 1, 0, 2]], 
+                    [[-5, 0, 0], [6, 4, 0, 2]],
+                    [[0, 0, 5], [7, 6, 2, 3]], 
+                    [[0, 0, -5], [0, 1, 5, 4]]
+                ],
                 bounding_box: [[7, 7, 7], [-7, -7, -7]]
             },
             "pyramid": {
                 vertices: [[0, 1.25, -5], [5, 1.25, 0], [-5, 1.25, 0], [0, 1.25, 5], [0, -3.75, 0]],    
-                edges: [[1, 0], [1, 3], [2, 0], [2, 3], [4, 0], [4, 1], [4, 2], [4, 3]],
-                face_normals: [[[0, 1.25, 0], [0, 2, 3, 1]], [[1.25, -1.25, 1.25], [5, 7, 1]], [[-1.25, -1.25, 1.25], [7, 3, 6]], [[1.25, -1.25, -1.25], [5, 4, 0]], [[-1.25, -1.25, -1.25], [6, 4, 2]]],
+                faces: [
+                    [[0, 1.25, 0], [1, 0, 2, 3]], 
+                    [[1.25, -1.25, 1.25], [4, 1, 3]], 
+                    [[-1.25, -1.25, 1.25], [4, 3, 2]], 
+                    [[1.25, -1.25, -1.25], [1, 0, 4]], 
+                    [[-1.25, -1.25, -1.25], [0, 2, 4]]
+                ],
                 bounding_box: [[7, 3.25, 7], [-7, -3.25, -7]]
             }
         }
@@ -50,7 +61,7 @@ export default class GameState {
         this.max_speed = 2
         this.min_speed = 0.4
 
-        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] / 2 + 250]
+        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
         this.radar_radius = 80
         this.radar_range = 500
         this.radar_points
@@ -62,6 +73,8 @@ export default class GameState {
         this.overheat_active = false
         this.laser_damage = 20
         this.laser_speed = 6
+        this.enemy_laser_colour = "#ff4242"
+        this.player_laser_colour = "#53fc5c"
 
         this.locking_time = 3
         this.lock_colour = "orange"
@@ -70,6 +83,7 @@ export default class GameState {
         this.missile_speed = 5
         this.missile_damage = 100
         this.missiles_left = 3
+        this.missile_colour = "yellow"
         this.max_missiles = this.missiles_left
         this.just_fired = false
         this.locking_counter = 1
@@ -90,12 +104,7 @@ export default class GameState {
         }
 
         this.current_stars
-        this.current_render = {
-            vertices: [],
-            edges: [],
-            colour: "",
-            lock_info: []
-        }
+        this.current_render
     }
     registerKeyboardInput(player_velocity) {
         if (this.key_down_state["KeyW"] && !this.key_down_state["KeyS"]) {
@@ -116,7 +125,7 @@ export default class GameState {
             for (let i = 0; i < this.game_objects.length; i++) {
                 if (this.game_objects[i].tag == "enemy") {
                     let d = Vector.dot(Vector.scale(this.game_objects[i].position, 1), player_velocity)
-                    if (d > closest[0]) {
+                    if (d > closest[0] && this.game_objects[i].lock_tag < 0) {
                         closest = [d, i]
                     }
                 }
@@ -132,7 +141,9 @@ export default class GameState {
             }
         } else if (!this.key_down_state["KeyQ"] && this.locking_timer < this.locking_time) {
             let i = this.game_objects.findIndex(e => (e.lock_tag == this.locking_counter) && (e.tag != "missile"))
-            this.game_objects[i].lock_tag = -1
+            if (i != -1) {
+                this.game_objects[i].lock_tag = -1
+            }
             this.lock_colour = "orange"
             this.locking_timer = this.locking_time
         }
@@ -149,7 +160,7 @@ export default class GameState {
         if (this.mouse_down_state["0"] && !this.overheat_active) {
             this.fire_timer -= this.delta_time
             if (this.fire_timer < 0) {
-                this.game_objects.push(Object.spawnLaser("player", player_velocity, [0, 0, 0], this.laser_speed, "purple"))
+                this.game_objects.push(Object.spawnLaser("player", player_velocity, [0, 0, 0], this.laser_speed, this.player_laser_colour))
                 this.fire_timer = this.fire_rate
                 this.overheat_counter = Math.min(this.max_shots, this.overheat_counter + 1)
             }
@@ -164,7 +175,7 @@ export default class GameState {
 
         if (this.mouse_down_state["2"] && this.locking_timer < 0) {
             this.missiles_left -= 1
-            this.game_objects.push(Object.spawnMissile(player_velocity, this.missile_speed, "yellow", this.missile_time, this.locking_counter))
+            this.game_objects.push(Object.spawnMissile(player_velocity, this.missile_speed, this.missile_colour, this.missile_time, this.locking_counter))
             this.lock_colour = "orange"
             this.locking_counter += 1
             this.locking_timer = this.locking_time
@@ -220,15 +231,18 @@ export default class GameState {
         this.current_stars = Graphics.applyPerspectiveProjection(rotated_stars, this.rtf, this.lbn, this.display_dimensions)
         this.drawBackground()
 
-        // Array for objects spawned during loop
+        // Array for objects spawned during loop and objects to render after loop
         let spawned_objects = []
+        let render_objects = []
         // Each game object is updated
         for (let i = 0; i < this.game_objects.length; i++) {
             // Timer on each object is reduced
             this.game_objects[i].timer -= this.delta_time
             // The total change in position for an object, being the sum of it's velocity and the relative velocity to the player
-            let sum_velocity = Vector.add(this.game_objects[i].velocity, player_velocity.map(e => -e)).map(e => e * frame_time)
+            let sum_velocity = Vector.subtract(this.game_objects[i].velocity, player_velocity).map(e => e * frame_time)
             this.game_objects[i].position = Vector.add(this.game_objects[i].position, sum_velocity)
+            // Objects centre position is rotated, needed for rendering later
+            let centre_position = Graphics.rotateAroundOriginByYX(this.game_objects[i].position, trig_vals)
 
             let obj = this.game_objects[i]
             // Player damage check
@@ -246,24 +260,25 @@ export default class GameState {
                 }
             }
 
-            let rotated_vertices = [], rotated_face_views = [], rotated_face_normals = [], edges = []
+            let rotated_vertices = [], dot_edges = []
 
             // Enemy object calculations
             if (obj.tag == "enemy") {
                 let struct = this.structures[obj.structure_name]
-                edges = struct.edges
 
                 // Rendering
-                for (let k = 0; k < Math.max(struct.vertices.length, struct.face_normals.length); k++) {
+                for (let k = 0; k < Math.max(struct.vertices.length, struct.faces.length); k++) {
                     if (k < struct.vertices.length) {
                         let game_vertex = Vector.add(obj.position, struct.vertices[k])
                         rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
                     }
-                    if (k < struct.face_normals.length) {
-                        let face_view = Vector.add(obj.position, struct.face_normals[k][0])
-                        rotated_face_views.push(Graphics.rotateAroundOriginByYX(face_view, trig_vals))
+                    if (k < struct.faces.length) {
+                        let face_view = Vector.add(obj.position, struct.faces[k][0])
+                        let rotated_face_view = Graphics.rotateAroundOriginByYX(face_view, trig_vals)
+                        let rotated_face_normal = Graphics.rotateAroundOriginByYX(struct.faces[k][0], trig_vals)
+                        let dot = Vector.dot(rotated_face_view, rotated_face_normal)
     
-                        rotated_face_normals.push([Graphics.rotateAroundOriginByYX(struct.face_normals[k][0], trig_vals), struct.face_normals[k][1]])
+                        dot_edges.push([dot, struct.faces[k][1]])
                     }
                 }
 
@@ -287,13 +302,10 @@ export default class GameState {
 
                 // Collision detection with missiles and updating missile velocity
                 if (obj.lock_tag > 0) {
-                    let rotated_position = Graphics.rotateAroundOriginByYX(obj.position, trig_vals)
-                    rotated_vertices.push(rotated_position)
-
                     let m = this.game_objects.findIndex(e => (e.lock_tag == obj.lock_tag) && (e.tag == "missile"))
                     if (m != -1) {
                         let missile = this.game_objects[m]
-                        let new_missile_direction = Vector.add(obj.position, missile.position.map(e => -e))
+                        let new_missile_direction = Vector.subtract(obj.position, missile.position)
                         this.game_objects[m].velocity = Vector.scale(new_missile_direction, this.missile_speed)
     
                         let within = true
@@ -313,7 +325,7 @@ export default class GameState {
 
                 // Chance to fire at player if within a certain range
                 if (Vector.length(obj.position) < 500 && Math.random() > 0.999) {
-                    spawned_objects.push(Object.spawnLaser("enemy", player_velocity.map(e => -e), obj.position, this.laser_speed, "red"))
+                    spawned_objects.push(Object.spawnLaser("enemy", player_velocity.map(e => -e), obj.position, this.laser_speed, this.enemy_laser_colour))
                 }
 
                 // Position on radar
@@ -327,7 +339,7 @@ export default class GameState {
             } 
             // Debris calculations
             else if (obj.tag == "debris") {
-                edges = obj.edges
+                dot_edges = [[-1, obj.edges]]
                 for (let vertex of obj.vertices) {
                     let game_vertex = Vector.add(obj.position, vertex)
                     rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
@@ -339,14 +351,24 @@ export default class GameState {
             }
 
             // Only objects in view are rendered
-            if (rotated_vertices[0][2] > this.lbn[2]) {
+            if (centre_position[2] > this.lbn[2]) {
                 let missile_fired = this.game_objects.filter(e => e.lock_tag == obj.lock_tag).length > 1
-                this.current_render.lock_info = [obj.lock_tag, this.lock_colour, missile_fired]
-                this.current_render.colour = obj.colour
-                this.current_render.edges = Graphics.findVisibleEdges(rotated_face_views, rotated_face_normals, edges)
-                this.current_render.vertices = Graphics.applyPerspectiveProjection(rotated_vertices, this.rtf, this.lbn, this.display_dimensions)
-                this.drawObject()
+                let edges_sequences = Graphics.sequenceVisibleFaces(dot_edges)
+                let render_info = {
+                    lock_info: [obj.lock_tag, this.lock_colour, missile_fired],
+                    colour: obj.colour,
+                    faces: edges_sequences,
+                    vertices: Graphics.applyPerspectiveProjection(rotated_vertices, this.rtf, this.lbn, this.display_dimensions),
+                    centre: Graphics.applyPerspectiveProjection([centre_position], this.rtf, this.lbn, this.display_dimensions)[0]
+                }
+                render_objects.push(render_info)
             }
+        }
+        // Render all objects
+        render_objects.sort((a, b) => b.centre[2] - a.centre[2])
+        for (let obj of render_objects) {
+            this.current_render = obj
+            this.drawObject()
         }
         // Pushes objects spawned during game loop into game objects
         this.game_objects.push(...spawned_objects)
@@ -354,7 +376,7 @@ export default class GameState {
         let dead_objects = this.game_objects.filter(e => e.health <= 0)
         this.game_objects = this.game_objects.filter(e => e.health > 0)
         for (let obj of dead_objects) {
-            this.game_objects.push(...Object.spawnDebris(this.structures[obj.structure_name], obj, 0.1))
+            this.game_objects.push(...Object.spawnDebris(this.structures[obj.structure_name], obj, 0.2))
         }
         // Filters out timed out objects
         this.game_objects = this.game_objects.filter(e => e.timer > 0)
