@@ -59,13 +59,6 @@ function onMenuClick() {
         game_state.enter()
     }
 }
-// Util
-function hsl2rgb(h,s,l) {
-    let a=s*Math.min(l,1-l)
-    let f= (n,k=(n+h/30)%12) => l - a*Math.max(Math.min(k-3,9-k,1),-1)
-    let rgb = [f(0),f(8),f(4)].map((e) => Math.round(e * 255).toString(16)) 
-    return "#" + rgb[0] + rgb[1] + rgb[2]
-}   
 
 // GameState
 var game_state = new GameState({display_dimensions: [canvas.width, canvas.height]})
@@ -98,10 +91,12 @@ game_state.drawObject = () => {
         ctx.fill()
         ctx.closePath()
     } else {
-        ctx.fillStyle = render_object.colour
         ctx.lineWidth = 1
         ctx.strokeStyle = "black"
-        for (let sequence of render_object.faces) {
+        for (let stuff of render_object.faces) {
+            let sequence = stuff[1]
+            let shaded_rgb = render_object.colour.map(e => (Math.round(e * stuff[0]) < 16 ? "0" : "") + (Math.round(e * stuff[0]).toString(16)))
+            ctx.fillStyle = "#" + shaded_rgb[0] + shaded_rgb[1] + shaded_rgb[2]
             ctx.beginPath()
             ctx.moveTo(render_object.vertices[sequence[0]][0], render_object.vertices[sequence[0]][1])
             for (let i = 1; i < sequence.length; i++) {
@@ -269,6 +264,13 @@ main_menu_state.enter()
 window.addEventListener("resize", onWindowResize)
 //Convoy test
 let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 500)
-game_state.game_objects = Object.spawnConvoy("cube", 8, 40, 0.7, convoy_position)
+game_state.game_objects = Object.spawnConvoy({
+        struct_name: "pyramid", 
+        count: 10, 
+        rad: 50, 
+        spe: 0.7, 
+        centre: convoy_position,
+        col: [242, 24, 242]
+    })
 // Lift off!!
 updateDisplay(0)

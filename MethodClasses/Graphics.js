@@ -31,17 +31,4 @@ export default class Graphics {
         }
         return projected_vertices
     }
-    static sequenceVisibleFaces(dot_edges) {
-        if (dot_edges.length == 0) {
-            return []
-        } else {
-            let face_vertex_sequences = []
-            for (let i = 0; i < dot_edges.length; i++) {
-                if (dot_edges[i][0] < 0) {
-                    face_vertex_sequences.push(dot_edges[i][1])
-                }
-            }
-            return face_vertex_sequences
-        }
-    }
 }

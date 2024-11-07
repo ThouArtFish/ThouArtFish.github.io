@@ -16,37 +16,45 @@ export default class Object {
         }
         return game_object
     }
-    static spawnLaser(side, velocity, position, colour) {
+    static spawnLaser(...args) {
+        const [{side, vel, pos, col}] = args
         let game_object = {
             tag: side + "_laser",
-            colour: colour,
-            position: position,
-            velocity: velocity,
+            colour: col,
+            position: pos,
+            velocity: vel,
             timer: 5,
             health: 1
         }
         return game_object
     }
-    static spawnMissile(direction, speed, colour, timer, locking_counter) {
+    static spawnMissile(...args) {
+        const [{col, vel, timer, locking_counter}] = args
         let game_object = {
             tag: "missile",
-            colour: colour,
+            colour: col,
             position: [0, 0, 0],
-            velocity: Vector.scale(direction, speed),
+            velocity: vel,
             timer: timer,
             health: 1,
             lock_tag: locking_counter
         }
         return game_object
     }
-    static spawnConvoy(struct_name, count, radius, speed, centre_position) {
+    static spawnConvoy(...args) {
+        let [{struct_name, count, rad, spe, centre, col}] = args
         let convoy = []
-        let velocity = Vector.scale(centre_position, -speed)
+        let velocity = Vector.scale(centre, -spe)
         for (let i = 0; i < count; i++) {
             let angle = (Math.PI * 2 * i) / count
-            let centre_offset = Graphics.rotateAroundOriginByYX([0, 0, radius], {cosx: 1, sinx: 0, cosy: Math.cos(angle), siny: Math.sin(angle)})
-            let spawn_position = Vector.add(centre_position, centre_offset)
-            convoy.push(this.spawnIndividual({tag: "enemy", struct_name: struct_name, pos: spawn_position, vel: velocity, col: "cyan", timer: 240, health: 100}))
+            let centre_offset = Graphics.rotateAroundOriginByYX([0, 0, rad], {cosx: 1, sinx: 0, cosy: Math.cos(angle), siny: Math.sin(angle)})
+            convoy.push(this.spawnIndividual(
+            {
+                tag: "enemy", struct_name: struct_name, 
+                pos: Vector.add(centre, centre_offset), 
+                vel: velocity, 
+                col: col, timer: 240, health: 100
+            }))
         }
         return convoy
     }
