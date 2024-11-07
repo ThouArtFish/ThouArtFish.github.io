@@ -112,7 +112,7 @@ game_state.drawObject = () => {
             ctx.fill()
         }
 
-        if (render_object.lock_info[0] > 0 && !render_object.lock_info[2]) {
+        if (render_object.lock_info[0]) {
             ctx.strokeStyle = render_object.lock_info[1]
             ctx.strokeRect(
                 render_object.centre[0] - 30,

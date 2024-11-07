@@ -16,12 +16,12 @@ export default class Object {
         }
         return game_object
     }
-    static spawnLaser(side, direction, position, speed, colour) {
+    static spawnLaser(side, velocity, position, colour) {
         let game_object = {
             tag: side + "_laser",
             colour: colour,
             position: position,
-            velocity: Vector.scale(direction, speed),
+            velocity: velocity,
             timer: 5,
             health: 1
         }

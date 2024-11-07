@@ -160,7 +160,7 @@ export default class GameState {
         if (this.mouse_down_state["0"] && !this.overheat_active) {
             this.fire_timer -= this.delta_time
             if (this.fire_timer < 0) {
-                this.game_objects.push(Object.spawnLaser("player", player_velocity, [0, 0, 0], this.laser_speed, this.player_laser_colour))
+                this.game_objects.push(Object.spawnLaser("player", Vector.scale(player_velocity, this.laser_speed), [0, 0, 0], this.player_laser_colour))
                 this.fire_timer = this.fire_rate
                 this.overheat_counter = Math.min(this.max_shots, this.overheat_counter + 1)
             }
@@ -186,7 +186,6 @@ export default class GameState {
         let frame_time = 60 * this.delta_time
         // Reset various arrays
         this.radar_points = []
-        this.current_hud_pointers = []
         this.current_stars = []
 
         //Array of only player lasers for collison checks later
@@ -249,7 +248,7 @@ export default class GameState {
             if (obj.tag == "enemy_laser") {
                 let within = true
                 for (let k = 0; k < 3; k++) {
-                    if(!(Math.abs(obj.position[k]) < 20)) {
+                    if(!(Math.abs(obj.position[k]) < 10)) {
                         within = false
                         break
                     }
@@ -325,7 +324,7 @@ export default class GameState {
 
                 // Chance to fire at player if within a certain range
                 if (Vector.length(obj.position) < 500 && Math.random() > 0.999) {
-                    spawned_objects.push(Object.spawnLaser("enemy", player_velocity.map(e => -e), obj.position, this.laser_speed, this.enemy_laser_colour))
+                    spawned_objects.push(Object.spawnLaser("enemy", Vector.scale(obj.position, -this.laser_speed), obj.position, this.enemy_laser_colour))
                 }
 
                 // Position on radar
@@ -353,9 +352,11 @@ export default class GameState {
             // Only objects in view are rendered
             if (centre_position[2] > this.lbn[2]) {
                 let missile_fired = this.game_objects.filter(e => e.lock_tag == obj.lock_tag).length > 1
+                let draw_locking_sqaure = !missile_fired && obj.lock_tag > 0
+
                 let edges_sequences = Graphics.sequenceVisibleFaces(dot_edges)
                 let render_info = {
-                    lock_info: [obj.lock_tag, this.lock_colour, missile_fired],
+                    lock_info: [draw_locking_sqaure, this.lock_colour],
                     colour: obj.colour,
                     faces: edges_sequences,
                     vertices: Graphics.applyPerspectiveProjection(rotated_vertices, this.rtf, this.lbn, this.display_dimensions),
@@ -374,10 +375,10 @@ export default class GameState {
         this.game_objects.push(...spawned_objects)
         // Blows up objects with zero health
         let dead_objects = this.game_objects.filter(e => e.health <= 0)
-        this.game_objects = this.game_objects.filter(e => e.health > 0)
         for (let obj of dead_objects) {
             this.game_objects.push(...Object.spawnDebris(this.structures[obj.structure_name], obj, 0.2))
         }
+        this.game_objects = this.game_objects.filter(e => e.health > 0)
         // Filters out timed out objects
         this.game_objects = this.game_objects.filter(e => e.timer > 0)
         // HUD is drawn on top
