@@ -3,8 +3,9 @@ import Vector from "../MethodClasses/Vector.js"
 
 export default class Object {
     static spawnIndividual(...args) {
-        const [{tag, struct_name, col, pos, vel, timer, health}] = args
+        const [{side, tag, struct_name, col, pos, vel, timer, health, fire_rate, missile_rate}] = args
         let game_object = {
+            side: side,
             tag: tag,
             structure_name: struct_name,
             colour: col,
@@ -12,32 +13,23 @@ export default class Object {
             velocity: vel,
             timer: timer,
             health: health,
+            fire_rate: [Math.random() * fire_rate, fire_rate],
+            missile_rate: [Math.random() * missile_rate, missile_rate],
             lock_tag: -1
         }
         return game_object
     }
-    static spawnLaser(...args) {
-        const [{side, vel, pos, col}] = args
+    static spawnProjectile(...args) {
+        const [{side, tag, vel, pos, col, timer, lock_tag}] = args
         let game_object = {
-            tag: side + "_laser",
+            side: side,
+            tag: tag,
             colour: col,
             position: pos,
             velocity: vel,
-            timer: 5,
-            health: 1
-        }
-        return game_object
-    }
-    static spawnMissile(...args) {
-        const [{col, vel, timer, locking_counter}] = args
-        let game_object = {
-            tag: "missile",
-            colour: col,
-            position: [0, 0, 0],
-            velocity: vel,
             timer: timer,
             health: 1,
-            lock_tag: locking_counter
+            lock_tag: lock_tag
         }
         return game_object
     }
@@ -45,15 +37,23 @@ export default class Object {
         let [{struct_name, count, rad, spe, centre, col}] = args
         let convoy = []
         let velocity = Vector.scale(centre, -spe)
+        let missile_carrier = Math.floor(Math.random() * count)
         for (let i = 0; i < count; i++) {
             let angle = (Math.PI * 2 * i) / count
             let centre_offset = Graphics.rotateAroundOriginByYX([0, 0, rad], {cosx: 1, sinx: 0, cosy: Math.cos(angle), siny: Math.sin(angle)})
             convoy.push(this.spawnIndividual(
             {
-                tag: "enemy", struct_name: struct_name, 
+                side: "enemy",
+                tag: "convoy", 
+                struct_name: struct_name, 
                 pos: Vector.add(centre, centre_offset), 
                 vel: velocity, 
-                col: col, timer: 240, health: 100
+                col: col, 
+                timer: 240, 
+                health: 100,
+                fire_rate: 10,
+                missile_rate: i == missile_carrier ? 25 : 0,
+                locking_counter: -1
             }))
         }
         return convoy
@@ -62,14 +62,13 @@ export default class Object {
         let total_debris = []
         for (let face_info of structure.faces) {
             let debris_vertices = []
-            for (let vertex of structure.vertices) {
-                debris_vertices.push(Vector.subtract(vertex, face_info[0]))
+            for (let vertex_index of face_info[1]) {
+                debris_vertices.push(Vector.subtract(structure.vertices[vertex_index], face_info[0]))
             }
             let game_object = {
                 tag: "debris",
                 colour: object.colour,
                 vertices: debris_vertices,
-                edges: face_info[1],
                 position: Vector.add(object.position, face_info[0]),
                 velocity: Vector.scale(face_info[0], speed),
                 timer: 2.5,

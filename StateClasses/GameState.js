@@ -40,7 +40,8 @@ export default class GameState {
         this.key_down_state = {
             "KeyW": false,
             "KeyS": false,
-            "KeyQ": false
+            "KeyQ": false,
+            "KeyE": false
         }
         this.mouse_down_state = {
             "0": false,
@@ -56,14 +57,15 @@ export default class GameState {
         this.rotation_y = 0
 
         this.player_speed = 1.2
+        this.player_hit_radius = 8
         this.default_speed = this.player_speed
         this.delta_speed = 0.2
         this.max_speed = 2
         this.min_speed = 0.4
 
-        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
-        this.radar_radius = 80
-        this.radar_range = 500
+        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.82]
+        this.radar_radius = 100
+        this.radar_range = 800
         this.radar_points
 
         this.fire_rate = 0.4
@@ -73,14 +75,13 @@ export default class GameState {
         this.overheat_active = false
         this.laser_damage = 20
         this.laser_speed = 6
-        this.enemy_laser_colour = "#ff4242"
-        this.player_laser_colour = "#53fc5c"
+        this.laser_colour = "#ff4242"
 
         this.locking_time = 3
         this.lock_colour = "orange"
         this.locking_timer = this.locking_time
-        this.missile_time = 8
-        this.missile_speed = 5
+        this.player_missile_speed = 5
+        this.enemy_missile_speed = 3
         this.missile_damage = 100
         this.missiles_left = 3
         this.missile_colour = "#f5f05b"
@@ -88,7 +89,14 @@ export default class GameState {
         this.just_fired = false
         this.locking_counter = 1
 
+        this.jam_timeout = 1
+        this.jam_timer = this.jam_timeout
+        this.enemy_missile_count = 0
+
         this.player_health = 100
+
+        this.enemy_tags = ["convoy", "guard"]
+        this.projectile_types = ["missile", "laser"]
 
         let backgroundObjectPosition = () => {
             let pos = []
@@ -105,8 +113,10 @@ export default class GameState {
 
         this.current_stars
         this.current_render
+        this.current_nearby_star
     }
     registerKeyboardInput(player_velocity) {
+        // Acceleration and decceleration
         if (this.key_down_state["KeyW"] && !this.key_down_state["KeyS"]) {
             this.player_speed = Math.min(this.max_speed, this.player_speed + this.delta_speed * this.delta_time)
         } else if (!this.key_down_state["KeyW"] && this.key_down_state["KeyS"]) {
@@ -119,13 +129,14 @@ export default class GameState {
             }
         }
 
+        // Firing tracking missiles
         this.just_fired = (this.key_down_state["KeyQ"] && this.just_fired) ? true : false
         if (this.key_down_state["KeyQ"] && this.locking_timer == this.locking_time && !this.just_fired && this.missiles_left > 0) {
             let closest = [0]
             for (let i = 0; i < this.game_objects.length; i++) {
-                if (this.game_objects[i].tag == "enemy") {
+                if (this.enemy_tags.includes(this.game_objects[i].tag) && this.game_objects[i].lock_tag < 0) {
                     let d = Vector.dot(Vector.scale(this.game_objects[i].position, 1), player_velocity)
-                    if (d > closest[0] && this.game_objects[i].lock_tag < 0) {
+                    if (d > closest[0]) {
                         closest = [d, i]
                     }
                 }
@@ -147,6 +158,19 @@ export default class GameState {
             this.lock_colour = "orange"
             this.locking_timer = this.locking_time
         }
+
+        // Jamming enemy tracking missiles
+        if (this.jam_timer > this.jam_timeout) {
+            this.jam_timer = Math.min(this.jam_timeout, this.jam_timer - this.delta_time)
+        } else if (this.key_down_state["KeyE"]) {
+            this.jam_timer -= this.delta_time
+        } else {
+            if (this.jam_timer > 0) {
+                this.jam_timer = this.jam_timeout
+            } else {
+                this.jam_timer = 2 * this.jam_timeout
+            }
+        }
     }
     registerMouseInput(player_velocity) {
         if (this.overheat_active) {
@@ -160,12 +184,15 @@ export default class GameState {
         if (this.mouse_down_state["0"] && !this.overheat_active) {
             this.fire_timer -= this.delta_time
             if (this.fire_timer < 0) {
-                this.game_objects.push(Object.spawnLaser(
+                this.game_objects.push(Object.spawnProjectile(
                     {
-                        side: "player", 
-                        vel: Vector.scale(player_velocity, this.laser_speed),
+                        side: "player",
+                        tag: "laser",
+                        col: this.laser_colour,
                         pos: [0, 0, 0],
-                        col: this.player_laser_colour
+                        vel: Vector.scale(player_velocity, this.laser_speed),
+                        timer: 5,
+                        lock_tag: -1,
                     }))
                 this.fire_timer = this.fire_rate
                 this.overheat_counter = Math.min(this.max_shots, this.overheat_counter + 1)
@@ -181,12 +208,15 @@ export default class GameState {
 
         if (this.mouse_down_state["2"] && this.locking_timer < 0) {
             this.missiles_left -= 1
-            this.game_objects.push(Object.spawnMissile(
+            this.game_objects.push(Object.spawnProjectile(
                 {
+                    side: "player",
+                    tag: "missile",
                     col: this.missile_colour,
+                    pos: [0, 0, 0],
                     vel: [0, 0, 0],
-                    timer: this.missile_time,
-                    locking_counter: this.locking_counter
+                    timer: 7,
+                    lock_tag: this.locking_counter
                 }))
             this.lock_colour = "orange"
             this.locking_counter += 1
@@ -194,14 +224,22 @@ export default class GameState {
             this.just_fired = true
         }
     }
+    collisionDetection(position, top, bottom) {
+        for (let k = 0; k < 3; k++) {
+            if (!(position[k] < top[k] && position[k] > bottom[k])) {
+                return false
+            }
+        }
+        return true
+    }
     mainLoop() {
         let frame_time = 60 * this.delta_time
         // Reset various arrays
         this.radar_points = []
         this.current_stars = []
 
-        //Array of only player lasers for collison checks later
-        let lasers = this.game_objects.filter(e => e.tag == "player_laser").map(e => [e.position, this.game_objects.indexOf(e)])
+        //Array of player projectiles for checking projectile collisions later
+        let projectiles = this.game_objects.filter(e => e.side == "player" && this.projectile_types.includes(e.tag)).map(e => [e.position, e.tag, this.game_objects.indexOf(e)])
 
         // Change in mouse position is translated into change int rotation around x and y axis
         let angle_x = Math.atan(this.delta_coords[1] * this.sensitivity)
@@ -238,7 +276,7 @@ export default class GameState {
         trig_vals.siny *= -1, trig_vals.sinx *= -1
 
         // Background star calculations and rendering
-        let rotated_stars = this.distant_stars.map(e => Graphics.rotateAroundOriginByYX(e, trig_vals))
+        let rotated_stars = this.distant_stars.map((e) => Graphics.rotateAroundOriginByYX(e, trig_vals)).filter((e) => e[2] > 0)
         this.current_stars = Graphics.applyPerspectiveProjection(rotated_stars, this.rtf, this.lbn, this.display_dimensions)
         this.drawBackground()
 
@@ -252,133 +290,146 @@ export default class GameState {
             // The total change in position for an object, being the sum of it's velocity and the relative velocity to the player
             let sum_velocity = Vector.subtract(this.game_objects[i].velocity, player_velocity).map(e => e * frame_time)
             this.game_objects[i].position = Vector.add(this.game_objects[i].position, sum_velocity)
-            // Objects centre position is rotated, needed for rendering later
-            let centre_position = Graphics.rotateAroundOriginByYX(this.game_objects[i].position, trig_vals)
-
-            let obj = this.game_objects[i]
-            // Player damage check
-            if (obj.tag == "enemy_laser") {
-                let within = true
-                for (let k = 0; k < 3; k++) {
-                    if(!(Math.abs(obj.position[k]) < 10)) {
-                        within = false
-                        break
-                    }
-                }
-                if (within) {
-                    this.player_health -= 5
-                    this.game_objects[i].timer = 0
-                }
-            }
-
-            let rotated_vertices = [], dot_edges = []
-
-            // Enemy object calculations
-            if (obj.tag == "enemy") {
-                let struct = this.structures[obj.structure_name]
-
-                // Rendering
-                for (let k = 0; k < Math.max(struct.vertices.length, struct.faces.length); k++) {
-                    if (k < struct.vertices.length) {
-                        let game_vertex = Vector.add(obj.position, struct.vertices[k])
-                        rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
-                    }
-                    if (k < struct.faces.length) {
-                        let face_view = Vector.scale(Vector.add(obj.position, struct.faces[k][0]), 1)
-                        let rotated_face_view = Graphics.rotateAroundOriginByYX(face_view, trig_vals)
-
-                        let face_normal = Vector.scale(struct.faces[k][0], 1)
-                        let rotated_face_normal = Graphics.rotateAroundOriginByYX(face_normal, trig_vals)
-
-                        let dot = Vector.dot(rotated_face_view, rotated_face_normal)
-
-                        if (dot < 0) {
-                            dot_edges.push([-dot, struct.faces[k][1]])
-                        }
-                    }
-                }
-
-                let p1 = Vector.add(obj.position, struct.bounding_box[0])
-                let p2 = Vector.add(obj.position, struct.bounding_box[1])
-                // Collision detection with player lasers
-                for (let l = 0; l < lasers.length; l++) {
-                    let within = true
-                    for (let k = 0; k < 3; k++) {
-                        if (!(lasers[l][0][k] < p1[k] && lasers[l][0][k] > p2[k])) {
-                            within = false
-                            break
-                        }
-                    }
-                    if (within) {
-                        this.game_objects[i].health -= this.laser_damage
-                        this.game_objects[lasers[l][1]].timer = 0
-                        break
-                    }
-                }
-
-                // Collision detection with missiles and updating missile velocity
-                if (obj.lock_tag > 0) {
-                    let m = this.game_objects.findIndex(e => (e.lock_tag == obj.lock_tag) && (e.tag == "missile"))
-                    if (m != -1) {
-                        let missile = this.game_objects[m]
-                        let new_missile_direction = Vector.subtract(obj.position, missile.position)
-                        this.game_objects[m].velocity = Vector.scale(new_missile_direction, this.missile_speed)
-    
-                        let within = true
-                        for (let k = 0; k < 3; k++) {
-                            if (!(missile.position[k] < p1[k] && missile.position[k] > p2[k])) {
-                                within = false
-                                break
-                            }
-                        }
-                        if (within) {
-                            this.game_objects[i].health -= this.missile_damage
-                            this.game_objects[i].lock_tag = -1
-                            this.game_objects[m].timer = 0
-                        }
-                    }
-                }
-
-                // Chance to fire at player if within a certain range
-                if (Vector.length(obj.position) < 500 && Math.random() > 0.999) {
-                    spawned_objects.push(Object.spawnLaser(
-                        {
-                            side: "enemy", 
-                            vel: Vector.scale(obj.position, -this.laser_speed),
-                            pos: obj.position,
-                            col: this.enemy_laser_colour
-                        }))
-                }
-
-                // Position on radar
+            // Radar position for missiles and objects
+            if (this.enemy_tags.includes(this.game_objects[i].tag) || this.game_objects[i].tag == "missile") {
                 trig_vals.cosx = 1, trig_vals.sinx = 0
-                let rotated_pos = Graphics.rotateAroundOriginByYX(obj.position, trig_vals)
-                let radar_point = [(rotated_pos[0] * this.radar_radius) / this.radar_range, (-rotated_pos[2] * this.radar_radius) / this.radar_range, 0]
+                let radar_position = Graphics.rotateAroundOriginByYX(this.game_objects[i].position, trig_vals)
+                let radar_point = [(radar_position[0] * this.radar_radius) / this.radar_range, (-radar_position[2] * this.radar_radius) / this.radar_range, 0]
                 if (Vector.length(radar_point) < this.radar_radius) {
                     this.radar_points.push(radar_point)
                 }
                 trig_vals.cosx = Math.cos(this.rotation_x), trig_vals.sinx = -Math.sin(this.rotation_x)
-            } 
+            }
+            // Objects centre position is rotated, needed for rendering later
+            let centre_position = Graphics.rotateAroundOriginByYX(this.game_objects[i].position, trig_vals)
+
+            //Arrays for info about faces and vertices
+            let rotated_vertices = []
+            let dot_edges = []
+            // Useful reference
+            let obj = this.game_objects[i]
+            // Enemy objects
+            if (obj.side == "enemy") {
+                let top = [this.player_hit_radius, this.player_hit_radius, this.player_hit_radius]
+                // Enemy lasers
+                if (obj.tag == "laser") {
+                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), top, [0, 0, 0])) {
+                        this.player_health -= 5
+                        this.game_objects[i].timer = 0
+                    }
+                    rotated_vertices.push(centre_position)
+                }
+                // Enemy missiles
+                else if (obj.tag == "missile") {
+                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), top, [0, 0, 0])) {
+                        this.player_health -= 10
+                        this.game_objects[i].timer = 0
+                        this.enemy_missile_count -= 1
+                    }
+                    let jam_missiles = (this.jam_timer > 0) && (this.jam_timer < this.jam_timeout)
+                    if (jam_missiles && Vector.length(obj.position) < 100) {
+                        this.game_objects[i].timer = 0
+                        this.enemy_missile_count -= 1
+                    }
+                    this.game_objects[i].velocity = Vector.scale(obj.position, -this.enemy_missile_speed)
+                    rotated_vertices.push(centre_position)
+                }
+                // Enemy objects
+                else {
+                    let struct = this.structures[obj.structure_name]
+                    // Rendering
+                    for (let k = 0; k < Math.max(struct.vertices.length, struct.faces.length); k++) {
+                        if (k < struct.vertices.length) {
+                            let game_vertex = Vector.add(obj.position, struct.vertices[k])
+                            rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
+                        }
+                        if (k < struct.faces.length) {
+                            let face_view = Vector.scale(Vector.add(obj.position, struct.faces[k][0]), 1)
+                            let rotated_face_view = Graphics.rotateAroundOriginByYX(face_view, trig_vals)
+                            let face_normal = Vector.scale(struct.faces[k][0], 1)
+                            let rotated_face_normal = Graphics.rotateAroundOriginByYX(face_normal, trig_vals)
+                            let dot = Vector.dot(rotated_face_view, rotated_face_normal)
+                            if (dot < 0) {
+                                dot_edges.push([-dot, struct.faces[k][1]])
+                            }
+                        }
+                    }
+                    // Collision detection with player projectiles
+                    let top = Vector.add(obj.position, struct.bounding_box[0])
+                    let bottom = Vector.add(obj.position, struct.bounding_box[1])
+                    for (let p of projectiles) {
+                        if (this.collisionDetection(p[0], top, bottom)) {
+                            this.game_objects[i].health -= p[1] == "missile" ? this.missile_damage : this.laser_damage
+                            this.game_objects[p[2]].timer = 0
+                            break
+                        }
+                    }
+                    // Chance to fire at player if within a certain range
+                    if (Vector.length(obj.position) < 400) {
+                        this.game_objects[i].fire_rate[0] -= this.delta_time
+                        if (this.game_objects[i].fire_rate[0] < 0) {
+                            spawned_objects.push(Object.spawnProjectile(
+                                {
+                                    side: "enemy",
+                                    tag: "laser", 
+                                    col: this.laser_colour,
+                                    pos: obj.position,
+                                    vel: Vector.scale(obj.position, -this.laser_speed),
+                                    timer: 5,
+                                    lock_tag: -1
+                                }))
+                            this.game_objects[i].fire_rate[0] = Math.random() * obj.fire_rate[1] + 1
+                        }
+                    }
+                    // Missile carriers have a chance to fire a homing missile at the player
+                    if (Vector.length(obj.position) < 800 && obj.missile_rate[1] > 0) {
+                        this.game_objects[i].missile_rate[0] -= this.delta_time
+                        if (this.game_objects[i].missile_rate[0] < 0) {
+                            spawned_objects.push(Object.spawnProjectile(
+                                {
+                                    side: "enemy",
+                                    tag: "missile", 
+                                    col: this.missile_colour,
+                                    pos: obj.position,
+                                    vel: [0, 0, 0],
+                                    timer: 6,
+                                    lock_tag: -1
+                                }))
+                            this.game_objects[i].missile_rate[0] = Math.random() * obj.missile_rate[1] + 5
+                            this.enemy_missile_count += 1
+                        }
+                    }
+                } 
+            }
+            else if (obj.side == "player") {
+                // Updating missile velocity
+                if (obj.tag == "missile") {
+                    let o = this.game_objects.findIndex((e) => (e.lock_tag == obj.lock_tag) && (e.tag != "missile"))
+                    if (o != -1) {
+                        let tracked_object = this.game_objects[o]
+                        let new_missile_direction = Vector.subtract(tracked_object.position, obj.position)
+                        this.game_objects[i].velocity = Vector.scale(new_missile_direction, this.player_missile_speed)
+                    }
+                }
+                rotated_vertices.push(centre_position)
+            }
             // Debris calculations
             else if (obj.tag == "debris") {
-                let norm_obj_velocity = Vector.scale(obj.velocity, 1), norm_obj_position = Vector.scale(obj.position, 1)
-                let dot = Vector.dot(norm_obj_velocity, norm_obj_position)
-                dot_edges = [[Math.abs(dot), obj.edges]]
-                for (let vertex of obj.vertices) {
-                    let game_vertex = Vector.add(obj.position, vertex)
-                    rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
+                let norm_obj_velocity = Graphics.rotateAroundOriginByYX(Vector.scale(obj.velocity, 1), trig_vals)
+                let shader_factor = Math.abs(Vector.dot(norm_obj_velocity, Vector.scale(centre_position, 1)))
+                let vertex_sequence = []
+                for (let k = 0; k < obj.vertices.length; k++) {
+                    vertex_sequence.push(k)
+                    rotated_vertices.push(Graphics.rotateAroundOriginByYX(Vector.add(obj.position, obj.vertices[k]), trig_vals))
                 }
+                dot_edges.push([shader_factor, vertex_sequence])
             } 
-            // Projectile calculations
-            else {
-                rotated_vertices.push(Graphics.rotateAroundOriginByYX(obj.position, trig_vals))
-            }
 
-            // Only objects in view are rendered
+            // Render info is added to array
             if (centre_position[2] > this.lbn[2]) {
                 let missile_fired = this.game_objects.filter(e => e.lock_tag == obj.lock_tag).length > 1
                 let draw_locking_sqaure = !missile_fired && obj.lock_tag > 0
-
+    
                 let render_info = {
                     lock_info: [draw_locking_sqaure, this.lock_colour],
                     colour: obj.colour,
@@ -389,6 +440,8 @@ export default class GameState {
                 render_objects.push(render_info)
             }
         }
+
+
         // Render all objects
         render_objects.sort((a, b) => b.centre[2] - a.centre[2])
         for (let obj of render_objects) {

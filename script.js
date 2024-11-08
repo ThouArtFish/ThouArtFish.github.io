@@ -156,6 +156,15 @@ game_state.drawHUD = () => {
         ctx.closePath()
     }
 
+    ctx.fillStyle = "#ff3853"
+    if (game_state.enemy_missile_count > 0) {
+        ctx.fillText(
+            "MISSILE",
+            -35,
+            -game_state.radar_radius - 25,
+        )
+    }
+
     let overheat_meter_height = (game_state.overheat_counter / game_state.max_shots) * game_state.radar_radius * 2
     ctx.fillStyle = overheat_meter_height >= game_state.radar_radius * 2 ? "maroon" : "red"
     ctx.fillRect(
@@ -265,8 +274,8 @@ window.addEventListener("resize", onWindowResize)
 //Convoy test
 let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 500)
 game_state.game_objects = Object.spawnConvoy({
-        struct_name: "pyramid", 
-        count: 10, 
+        struct_name: "cube", 
+        count: 6, 
         rad: 50, 
         spe: 0.7, 
         centre: convoy_position,
