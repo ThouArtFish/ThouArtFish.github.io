@@ -91,7 +91,7 @@ export default class GameState {
 
         this.jam_timeout = 1
         this.jam_timer = this.jam_timeout
-        this.enemy_missile_count = 0
+        this.enemy_missile_count
 
         this.player_health = 100
 
@@ -234,6 +234,9 @@ export default class GameState {
 
         //Array of player projectiles for checking projectile collisions later
         let projectiles = this.game_objects.filter(e => e.side == "player" && this.projectile_types.includes(e.tag)).map(e => [e.position, e.tag, this.game_objects.indexOf(e)])
+        // Enemy missile count for display 
+        this.enemy_missile_count = this.game_objects.filter(e => e.side == "enemy" && e.tag == "missile").length
+
 
         // Change in mouse position is translated into change int rotation around x and y axis
         let angle_x = Math.atan(this.delta_coords[1] * this.sensitivity)
@@ -318,12 +321,10 @@ export default class GameState {
                     if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), top, [0, 0, 0])) {
                         this.player_health -= 10
                         this.game_objects[i].timer = 0
-                        this.enemy_missile_count -= 1
                     }
                     let jam_missiles = (this.jam_timer > 0) && (this.jam_timer < this.jam_timeout)
                     if (jam_missiles && Vector.length(obj.position) < 80) {
                         this.game_objects[i].timer = 0
-                        this.enemy_missile_count -= 1
                     }
                     this.game_objects[i].velocity = Vector.scale(obj.position, -this.enemy_missile_speed)
                     rotated_vertices.push(centre_position)
@@ -394,7 +395,6 @@ export default class GameState {
                                     lock_tag: -1
                                 }))
                             this.game_objects[i].missile_rate[0] = Math.random() * obj.missile_rate[1] + 5
-                            this.enemy_missile_count += 1
                         }
                     }
                 } 
