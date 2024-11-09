@@ -52,7 +52,7 @@ export default class Object {
                 timer: 240, 
                 health: 100,
                 fire_rate: 10,
-                missile_rate: i == missile_carrier ? 25 : 0,
+                missile_rate: i == missile_carrier ? 15 : 0,
                 locking_counter: -1
             }))
         }
@@ -77,9 +77,5 @@ export default class Object {
             total_debris.push(game_object)
         }
         return total_debris
-    }
-    static randomFloat() {
-        let f = Math.random()
-        return Math.random() > 0.5 ? -f : f
     }
 }

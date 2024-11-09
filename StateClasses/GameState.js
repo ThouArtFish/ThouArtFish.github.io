@@ -4,7 +4,7 @@ import Object from "../ObjectClasses/Object.js"
 
 export default class GameState {
     constructor(...args) {
-        const [{display_dimensions, sens = 0.0008, lbn = [-20, 20, 20], rtf = [20, -20, 1000], star_count = 60}] = args
+        const [{display_dimensions, sens = 0.0008, lbn = [-20, 20, 20], rtf = [20, -20, 1000], star_count = 70}] = args
 
         this.structures = {
             "cube": {
@@ -63,8 +63,8 @@ export default class GameState {
         this.max_speed = 2
         this.min_speed = 0.4
 
-        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.82]
-        this.radar_radius = 100
+        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
+        this.radar_radius = 90
         this.radar_range = 800
         this.radar_points
 
@@ -98,17 +98,9 @@ export default class GameState {
         this.enemy_tags = ["convoy", "guard"]
         this.projectile_types = ["missile", "laser"]
 
-        let backgroundObjectPosition = () => {
-            let pos = []
-            while (pos.length < 3) {
-                let f = Math.random()
-                pos.push(Math.random() > 0.5 ? -f : f)
-            }
-            return pos
-        }
         this.distant_stars = []
         while (this.distant_stars.length < star_count) {
-            this.distant_stars.push(backgroundObjectPosition())
+            this.distant_stars.push([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()])
         }
 
         this.current_stars
@@ -136,7 +128,7 @@ export default class GameState {
             for (let i = 0; i < this.game_objects.length; i++) {
                 if (this.enemy_tags.includes(this.game_objects[i].tag) && this.game_objects[i].lock_tag < 0) {
                     let d = Vector.dot(Vector.scale(this.game_objects[i].position, 1), player_velocity)
-                    if (d > closest[0]) {
+                    if (d > closest[0] && d > 0) {
                         closest = [d, i]
                     }
                 }
@@ -161,18 +153,19 @@ export default class GameState {
 
         // Jamming enemy tracking missiles
         if (this.jam_timer > this.jam_timeout) {
-            this.jam_timer = Math.min(this.jam_timeout, this.jam_timer - this.delta_time)
+            this.jam_timer = Math.max(this.jam_timeout, this.jam_timer - this.delta_time)
         } else if (this.key_down_state["KeyE"]) {
             this.jam_timer -= this.delta_time
         } else {
             if (this.jam_timer > 0) {
                 this.jam_timer = this.jam_timeout
             } else {
-                this.jam_timer = 2 * this.jam_timeout
+                this.jam_timer = 3 * this.jam_timeout
             }
         }
     }
     registerMouseInput(player_velocity) {
+        // Fire main lasers
         if (this.overheat_active) {
             this.fire_timer -= this.delta_time
             if (this.fire_timer < 0) {
@@ -206,6 +199,7 @@ export default class GameState {
             this.overheat_counter -= this.delta_time
         }
 
+        // Fire tracking missile
         if (this.mouse_down_state["2"] && this.locking_timer < 0) {
             this.missiles_left -= 1
             this.game_objects.push(Object.spawnProjectile(
@@ -327,7 +321,7 @@ export default class GameState {
                         this.enemy_missile_count -= 1
                     }
                     let jam_missiles = (this.jam_timer > 0) && (this.jam_timer < this.jam_timeout)
-                    if (jam_missiles && Vector.length(obj.position) < 100) {
+                    if (jam_missiles && Vector.length(obj.position) < 80) {
                         this.game_objects[i].timer = 0
                         this.enemy_missile_count -= 1
                     }
@@ -361,11 +355,15 @@ export default class GameState {
                         if (this.collisionDetection(p[0], top, bottom)) {
                             this.game_objects[i].health -= p[1] == "missile" ? this.missile_damage : this.laser_damage
                             this.game_objects[p[2]].timer = 0
+                            if (this.game_objects[p[2]].tag == "missile") {
+                                let o = this.game_objects.findIndex((e) => e.lock_tag == this.game_objects[p[2]].lock_tag)
+                                this.game_objects[o].lock_tag = -1
+                            }
                             break
                         }
                     }
                     // Chance to fire at player if within a certain range
-                    if (Vector.length(obj.position) < 400) {
+                    if (Vector.length(obj.position) < 650) {
                         this.game_objects[i].fire_rate[0] -= this.delta_time
                         if (this.game_objects[i].fire_rate[0] < 0) {
                             spawned_objects.push(Object.spawnProjectile(
@@ -382,7 +380,7 @@ export default class GameState {
                         }
                     }
                     // Missile carriers have a chance to fire a homing missile at the player
-                    if (Vector.length(obj.position) < 800 && obj.missile_rate[1] > 0) {
+                    if (obj.missile_rate[1] > 0) {
                         this.game_objects[i].missile_rate[0] -= this.delta_time
                         if (this.game_objects[i].missile_rate[0] < 0) {
                             spawned_objects.push(Object.spawnProjectile(

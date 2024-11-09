@@ -95,7 +95,8 @@ game_state.drawObject = () => {
         ctx.strokeStyle = "black"
         for (let stuff of render_object.faces) {
             let sequence = stuff[1]
-            let shaded_rgb = render_object.colour.map(e => (Math.round(e * stuff[0]) < 16 ? "0" : "") + (Math.round(e * stuff[0]).toString(16)))
+            let shaded_rgb = render_object.colour.map((e) => Math.round(e * (render_object.faces.length == 1 ? 1 : stuff[0])))
+            shaded_rgb = shaded_rgb.map((e) => (e < 16 ? "0" : "") + (e.toString(16)))
             ctx.fillStyle = "#" + shaded_rgb[0] + shaded_rgb[1] + shaded_rgb[2]
             ctx.beginPath()
             ctx.moveTo(render_object.vertices[sequence[0]][0], render_object.vertices[sequence[0]][1])
@@ -272,12 +273,12 @@ function updateDisplay(timestamp) {
 main_menu_state.enter()
 window.addEventListener("resize", onWindowResize)
 //Convoy test
-let convoy_position = Vector.scale([Object.randomFloat(), Object.randomFloat(), Object.randomFloat()], 500)
+let convoy_position = Vector.scale([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()], 500)
 game_state.game_objects = Object.spawnConvoy({
         struct_name: "cube", 
-        count: 6, 
-        rad: 50, 
-        spe: 0.7, 
+        count: 7, 
+        rad: 90, 
+        spe: 0, 
         centre: convoy_position,
         col: [242, 24, 242]
     })

@@ -21,4 +21,8 @@ export default class Vector {
             v3x3[2][0] * v3x1[0] + v3x3[2][1] * v3x1[1] + v3x3[2][2] * v3x1[2]
         ]
     }
+    static randomFloat() {
+        let f = Math.random()
+        return Math.random() > 0.5 ? -f : f
+    }
 }
