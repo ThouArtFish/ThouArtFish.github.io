@@ -65,7 +65,7 @@ export default class GameState {
 
         this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
         this.radar_radius = 90
-        this.radar_range = 800
+        this.radar_range = 1200
         this.radar_points
 
         this.fire_rate = 0.4
@@ -480,7 +480,7 @@ export default class GameState {
         for (let obj of dead_objects) {
             this.score += this.score_template[obj.tag]
             this.game_objects.push(...Object.spawnDebris(this.structures[obj.structure_name], obj, 0.2))
-            if (Math.random() > 0.8) {
+            if (Math.random() > 0.7) {
                 let type = Math.random() > 0.5 ? "health" : "ammo"
                 this.game_objects.push(Object.spawnIndividual({
                     side: "player",
