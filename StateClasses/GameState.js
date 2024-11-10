@@ -89,11 +89,17 @@ export default class GameState {
         this.just_fired = false
         this.locking_counter = 1
 
-        this.jam_timeout = 1
+        this.jam_timeout = 0.4
         this.jam_timer = this.jam_timeout
         this.enemy_missile_count
 
         this.player_health = 100
+        this.max_player_health = this.player_health
+        this.score = 0
+        this.score_template = {
+            "convoy": 50,
+            "guard": 100
+        }
 
         this.enemy_tags = ["convoy", "guard"]
         this.projectile_types = ["missile", "laser"]
@@ -184,7 +190,7 @@ export default class GameState {
                         col: this.laser_colour,
                         pos: [0, 0, 0],
                         vel: Vector.scale(player_velocity, this.laser_speed),
-                        timer: 5,
+                        timer: 6,
                         lock_tag: -1,
                     }))
                 this.fire_timer = this.fire_rate
@@ -209,7 +215,7 @@ export default class GameState {
                     col: this.missile_colour,
                     pos: [0, 0, 0],
                     vel: [0, 0, 0],
-                    timer: 7,
+                    timer: 20,
                     lock_tag: this.locking_counter
                 }))
             this.lock_colour = "orange"
@@ -217,6 +223,27 @@ export default class GameState {
             this.locking_timer = this.locking_time
             this.just_fired = true
         }
+    }
+    prePerspectiveRendering(obj, trig_vals) {
+        let struct = this.structures[obj.structure_name]
+        let rotated_vertices = [], dot_edges = []
+        for (let k = 0; k < Math.max(struct.vertices.length, struct.faces.length); k++) {
+            if (k < struct.vertices.length) {
+                let game_vertex = Vector.add(obj.position, struct.vertices[k])
+                rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
+            }
+            if (k < struct.faces.length) {
+                let face_view = Vector.scale(Vector.add(obj.position, struct.faces[k][0]), 1)
+                let rotated_face_view = Graphics.rotateAroundOriginByYX(face_view, trig_vals)
+                let face_normal = Vector.scale(struct.faces[k][0], 1)
+                let rotated_face_normal = Graphics.rotateAroundOriginByYX(face_normal, trig_vals)
+                let dot = Vector.dot(rotated_face_view, rotated_face_normal)
+                if (dot < 0) {
+                    dot_edges.push([-dot, struct.faces[k][1]])
+                }
+            }
+        }
+        return [rotated_vertices, dot_edges]
     }
     collisionDetection(position, top, bottom) {
         for (let k = 0; k < 3; k++) {
@@ -297,61 +324,47 @@ export default class GameState {
                 }
                 trig_vals.cosx = Math.cos(this.rotation_x), trig_vals.sinx = -Math.sin(this.rotation_x)
             }
-            // Objects centre position is rotated, needed for rendering later
-            let centre_position = Graphics.rotateAroundOriginByYX(this.game_objects[i].position, trig_vals)
-
             //Arrays for info about faces and vertices
             let rotated_vertices = []
             let dot_edges = []
+            // Objects centre position is rotated, needed for rendering later
+            let centre_position = Graphics.rotateAroundOriginByYX(this.game_objects[i].position, trig_vals)
+            rotated_vertices.push(centre_position)
+            // Hitbox used by objects interacting with player
+            let player_top = [this.player_hit_radius, this.player_hit_radius, this.player_hit_radius]
+
             // Useful reference
             let obj = this.game_objects[i]
             // Enemy objects
             if (obj.side == "enemy") {
-                let top = [this.player_hit_radius, this.player_hit_radius, this.player_hit_radius]
                 // Enemy lasers
                 if (obj.tag == "laser") {
-                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), top, [0, 0, 0])) {
+                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), player_top, [0, 0, 0])) {
                         this.player_health -= 5
                         this.game_objects[i].timer = 0
                     }
-                    rotated_vertices.push(centre_position)
                 }
                 // Enemy missiles
                 else if (obj.tag == "missile") {
-                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), top, [0, 0, 0])) {
+                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), player_top, [0, 0, 0])) {
                         this.player_health -= 10
                         this.game_objects[i].timer = 0
                     }
                     let jam_missiles = (this.jam_timer > 0) && (this.jam_timer < this.jam_timeout)
-                    if (jam_missiles && Vector.length(obj.position) < 80) {
+                    if (jam_missiles && Vector.length(obj.position) < 50) {
                         this.game_objects[i].timer = 0
                     }
                     this.game_objects[i].velocity = Vector.scale(obj.position, -this.enemy_missile_speed)
-                    rotated_vertices.push(centre_position)
                 }
                 // Enemy objects
                 else {
-                    let struct = this.structures[obj.structure_name]
                     // Rendering
-                    for (let k = 0; k < Math.max(struct.vertices.length, struct.faces.length); k++) {
-                        if (k < struct.vertices.length) {
-                            let game_vertex = Vector.add(obj.position, struct.vertices[k])
-                            rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
-                        }
-                        if (k < struct.faces.length) {
-                            let face_view = Vector.scale(Vector.add(obj.position, struct.faces[k][0]), 1)
-                            let rotated_face_view = Graphics.rotateAroundOriginByYX(face_view, trig_vals)
-                            let face_normal = Vector.scale(struct.faces[k][0], 1)
-                            let rotated_face_normal = Graphics.rotateAroundOriginByYX(face_normal, trig_vals)
-                            let dot = Vector.dot(rotated_face_view, rotated_face_normal)
-                            if (dot < 0) {
-                                dot_edges.push([-dot, struct.faces[k][1]])
-                            }
-                        }
-                    }
+                    let pre_perspec_info = this.prePerspectiveRendering(obj, trig_vals)
+                    rotated_vertices.push(...pre_perspec_info[0])
+                    dot_edges.push(...pre_perspec_info[1])
                     // Collision detection with player projectiles
-                    let top = Vector.add(obj.position, struct.bounding_box[0])
-                    let bottom = Vector.add(obj.position, struct.bounding_box[1])
+                    let top = Vector.add(obj.position, this.structures[obj.structure_name].bounding_box[0])
+                    let bottom = Vector.add(obj.position, this.structures[obj.structure_name].bounding_box[1])
                     for (let p of projectiles) {
                         if (this.collisionDetection(p[0], top, bottom)) {
                             this.game_objects[i].health -= p[1] == "missile" ? this.missile_damage : this.laser_damage
@@ -364,7 +377,7 @@ export default class GameState {
                         }
                     }
                     // Chance to fire at player if within a certain range
-                    if (Vector.length(obj.position) < 650) {
+                    if (Vector.length(obj.position) < 1500) {
                         this.game_objects[i].fire_rate[0] -= this.delta_time
                         if (this.game_objects[i].fire_rate[0] < 0) {
                             spawned_objects.push(Object.spawnProjectile(
@@ -373,11 +386,11 @@ export default class GameState {
                                     tag: "laser", 
                                     col: this.laser_colour,
                                     pos: obj.position,
-                                    vel: Vector.scale(obj.position, -this.laser_speed),
+                                    vel: Vector.scale(obj.position, -this.laser_speed).map(e => e + (Vector.randomFloat() * 0.6)),
                                     timer: 5,
                                     lock_tag: -1
                                 }))
-                            this.game_objects[i].fire_rate[0] = Math.random() * obj.fire_rate[1] + 1
+                            this.game_objects[i].fire_rate[0] = Math.random() * obj.fire_rate[1]
                         }
                     }
                     // Missile carriers have a chance to fire a homing missile at the player
@@ -391,7 +404,7 @@ export default class GameState {
                                     col: this.missile_colour,
                                     pos: obj.position,
                                     vel: [0, 0, 0],
-                                    timer: 6,
+                                    timer: 20,
                                     lock_tag: -1
                                 }))
                             this.game_objects[i].missile_rate[0] = Math.random() * obj.missile_rate[1] + 5
@@ -399,6 +412,7 @@ export default class GameState {
                     }
                 } 
             }
+            // Player objects
             else if (obj.side == "player") {
                 // Updating missile velocity
                 if (obj.tag == "missile") {
@@ -409,31 +423,44 @@ export default class GameState {
                         this.game_objects[i].velocity = Vector.scale(new_missile_direction, this.player_missile_speed)
                     }
                 }
-                rotated_vertices.push(centre_position)
+                if (obj.tag == "health" || obj.tag == "ammo") {
+                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), player_top, [0, 0, 0])) {
+                        if (obj.tag == "health") {
+                            this.player_health = Math.min(this.max_player_health, this.player_health + 5)
+                        } else {
+                            this.missiles_left = Math.min(this.max_missiles, this.missiles_left + 1)
+                        }
+                        this.game_objects[i].timer = 0
+                    }
+                    let pre_perspec_info = this.prePerspectiveRendering(obj, trig_vals)
+                    rotated_vertices.push(...pre_perspec_info[0])
+                    dot_edges.push(...pre_perspec_info[1])
+                }
             }
             // Debris calculations
             else if (obj.tag == "debris") {
-                let norm_obj_velocity = Graphics.rotateAroundOriginByYX(Vector.scale(obj.velocity, 1), trig_vals)
-                let shader_factor = Math.abs(Vector.dot(norm_obj_velocity, Vector.scale(centre_position, 1)))
                 let vertex_sequence = []
                 for (let k = 0; k < obj.vertices.length; k++) {
                     vertex_sequence.push(k)
                     rotated_vertices.push(Graphics.rotateAroundOriginByYX(Vector.add(obj.position, obj.vertices[k]), trig_vals))
                 }
-                dot_edges.push([shader_factor, vertex_sequence])
+                dot_edges.push([1, vertex_sequence])
             } 
 
             // Render info is added to array
             if (centre_position[2] > this.lbn[2]) {
                 let missile_fired = this.game_objects.filter(e => e.lock_tag == obj.lock_tag).length > 1
                 let draw_locking_sqaure = !missile_fired && obj.lock_tag > 0
-    
+
+                let apply_perspective = Graphics.applyPerspectiveProjection(rotated_vertices, this.rtf, this.lbn, this.display_dimensions)
+                let perspective_centre = apply_perspective.shift()
+
                 let render_info = {
                     lock_info: [draw_locking_sqaure, this.lock_colour],
                     colour: obj.colour,
                     faces: dot_edges,
-                    vertices: Graphics.applyPerspectiveProjection(rotated_vertices, this.rtf, this.lbn, this.display_dimensions),
-                    centre: Graphics.applyPerspectiveProjection([centre_position], this.rtf, this.lbn, this.display_dimensions)[0]
+                    vertices: apply_perspective,
+                    centre: perspective_centre
                 }
                 render_objects.push(render_info)
             }
@@ -448,10 +475,24 @@ export default class GameState {
         }
         // Pushes objects spawned during game loop into game objects
         this.game_objects.push(...spawned_objects)
-        // Blows up objects with zero health
+        // Blows up objects with zero health, and increase score
         let dead_objects = this.game_objects.filter(e => e.health <= 0)
         for (let obj of dead_objects) {
+            this.score += this.score_template[obj.tag]
             this.game_objects.push(...Object.spawnDebris(this.structures[obj.structure_name], obj, 0.2))
+            if (Math.random() > 0.8) {
+                let type = Math.random() > 0.5 ? "health" : "ammo"
+                this.game_objects.push(Object.spawnIndividual({
+                    side: "player",
+                    tag: type,
+                    struct_name: "cube",
+                    col: type == "health" ? [119, 247, 54] : [191, 187, 191],
+                    pos: obj.position,
+                    vel: [0, 0, 0],
+                    timer: 60,
+                    health: 1,
+                }))
+            }
         }
         // Filters out objects that are dead or have timed out
         this.game_objects = this.game_objects.filter(e => e.health > 0 && e.timer > 0)

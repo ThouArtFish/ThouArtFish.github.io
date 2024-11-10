@@ -51,7 +51,7 @@ export default class Object {
                 col: col, 
                 timer: 240, 
                 health: 100,
-                fire_rate: 10,
+                fire_rate: 12,
                 missile_rate: i == missile_carrier ? 15 : 0,
                 locking_counter: -1
             }))

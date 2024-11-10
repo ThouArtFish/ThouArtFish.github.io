@@ -83,21 +83,21 @@ game_state.exit = () => {
 }
 game_state.drawObject = () => {
     let render_object = game_state.current_render
-    if (render_object.vertices.length == 1) {
-        let radius = Math.max(2, (1 - render_object.vertices[0][2]) * 20)
+    if (render_object.vertices.length == 0) {
+        let radius = Math.max(2, (1 - render_object.centre[2]) * 20)
         ctx.fillStyle = render_object.colour
         ctx.beginPath()
-        ctx.arc(render_object.vertices[0][0], render_object.vertices[0][1], radius, 0, Math.PI * 2)
+        ctx.arc(render_object.centre[0], render_object.centre[1], radius, 0, Math.PI * 2)
         ctx.fill()
         ctx.closePath()
     } else {
         ctx.lineWidth = 1
         ctx.strokeStyle = "black"
         for (let stuff of render_object.faces) {
-            let sequence = stuff[1]
-            let shaded_rgb = render_object.colour.map((e) => Math.round(e * (render_object.faces.length == 1 ? 1 : stuff[0])))
-            shaded_rgb = shaded_rgb.map((e) => (e < 16 ? "0" : "") + (e.toString(16)))
+            let shaded_rgb = render_object.colour.map((e) => (Math.round(e * stuff[0]) < 16 ? "0" : "") + (Math.round(e * stuff[0]).toString(16)))
             ctx.fillStyle = "#" + shaded_rgb[0] + shaded_rgb[1] + shaded_rgb[2]
+
+            let sequence = stuff[1]
             ctx.beginPath()
             ctx.moveTo(render_object.vertices[sequence[0]][0], render_object.vertices[sequence[0]][1])
             for (let i = 1; i < sequence.length; i++) {
@@ -140,6 +140,15 @@ game_state.drawHUD = () => {
     ctx.stroke()
     ctx.closePath()
 
+    ctx.font = "30px mainfont"
+    ctx.fillStyle = "white"
+    ctx.fillText(
+        game_state.score.toString(),
+        15,
+        30
+    )
+
+    ctx.font = "20px mainfont"
     ctx.translate(game_state.radar_centre[0], game_state.radar_centre[1])
     ctx.beginPath()
     ctx.arc(0, 0, game_state.radar_radius, 0, Math.PI * 2)
@@ -276,9 +285,9 @@ window.addEventListener("resize", onWindowResize)
 let convoy_position = Vector.scale([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()], 500)
 game_state.game_objects = Object.spawnConvoy({
         struct_name: "cube", 
-        count: 7, 
+        count: 8, 
         rad: 90, 
-        spe: 0, 
+        spe: 1.1, 
         centre: convoy_position,
         col: [242, 24, 242]
     })
