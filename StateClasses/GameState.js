@@ -60,8 +60,8 @@ export default class GameState {
         this.player_hit_radius = 8
         this.default_speed = this.player_speed
         this.delta_speed = 0.2
-        this.max_speed = 2
-        this.min_speed = 0.4
+        this.max_speed = 2.4
+        this.min_speed = 0
 
         this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
         this.radar_radius = 90
