@@ -134,8 +134,12 @@ game_state.drawHUD = () => {
     ctx.strokeStyle = "yellow"
     ctx.beginPath()
     ctx.moveTo(canvas.width/2, canvas.height/2 - 25)
+    ctx.lineTo(canvas.width/2, canvas.height/2 - 8)
+    ctx.moveTo(canvas.width/2, canvas.height/2 + 8)
     ctx.lineTo(canvas.width/2, canvas.height/2 + 25)
     ctx.moveTo(canvas.width/2 - 25, canvas.height/2)
+    ctx.lineTo(canvas.width/2 - 8, canvas.height/2)
+    ctx.moveTo(canvas.width/2 + 8, canvas.height/2)
     ctx.lineTo(canvas.width/2 + 25, canvas.height/2)
     ctx.stroke()
     ctx.closePath()
