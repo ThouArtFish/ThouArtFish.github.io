@@ -286,13 +286,13 @@ function updateDisplay(timestamp) {
 main_menu_state.enter()
 window.addEventListener("resize", onWindowResize)
 //Convoy test
-let convoy_position = Vector.scale([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()], 500)
+let convoy_position1 = Vector.scale([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()], 1500)
 game_state.game_objects = Object.spawnConvoy({
         struct_name: "cube", 
         count: 8, 
-        rad: 90, 
+        rad: 150, 
         spe: 1.1, 
-        centre: convoy_position,
+        centre: convoy_position1,
         col: [242, 24, 242]
     })
 // Lift off!!

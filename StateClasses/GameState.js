@@ -4,7 +4,7 @@ import Object from "../ObjectClasses/Object.js"
 
 export default class GameState {
     constructor(...args) {
-        const [{display_dimensions, sens = 0.0008, lbn = [-20, 20, 20], rtf = [20, -20, 1000], star_count = 70}] = args
+        const [{display_dimensions, sens = 0.0008, lbn = [-20, 20, 20], rtf = [20, -20, 1000], star_count = 50}] = args
 
         this.structures = {
             "cube": {
@@ -113,7 +113,7 @@ export default class GameState {
         this.current_render
         this.current_nearby_star
     }
-    registerKeyboardInput(player_velocity) {
+    registerKeyboardInput(player_direction) {
         // Acceleration and decceleration
         if (this.key_down_state["KeyW"] && !this.key_down_state["KeyS"]) {
             this.player_speed = Math.min(this.max_speed, this.player_speed + this.delta_speed * this.delta_time)
@@ -133,7 +133,7 @@ export default class GameState {
             let closest = [0]
             for (let i = 0; i < this.game_objects.length; i++) {
                 if (this.enemy_tags.includes(this.game_objects[i].tag) && this.game_objects[i].lock_tag < 0) {
-                    let d = Vector.dot(Vector.scale(this.game_objects[i].position, 1), player_velocity)
+                    let d = Vector.dot(Vector.scale(this.game_objects[i].position, 1), player_direction)
                     if (d > closest[0] && d > 0) {
                         closest = [d, i]
                     }
@@ -170,7 +170,7 @@ export default class GameState {
             }
         }
     }
-    registerMouseInput(player_velocity) {
+    registerMouseInput(player_direction) {
         // Fire main lasers
         if (this.overheat_active) {
             this.fire_timer -= this.delta_time
@@ -189,7 +189,7 @@ export default class GameState {
                         tag: "laser",
                         col: this.laser_colour,
                         pos: [0, 0, 0],
-                        vel: Vector.scale(player_velocity, this.laser_speed),
+                        vel: Vector.scale(player_direction, this.laser_speed),
                         timer: 6,
                         lock_tag: -1,
                     }))
@@ -233,12 +233,10 @@ export default class GameState {
                 rotated_vertices.push(Graphics.rotateAroundOriginByYX(game_vertex, trig_vals))
             }
             if (k < struct.faces.length) {
-                let face_view = Vector.scale(Vector.add(obj.position, struct.faces[k][0]), 1)
-                let rotated_face_view = Graphics.rotateAroundOriginByYX(face_view, trig_vals)
-                let face_normal = Vector.scale(struct.faces[k][0], 1)
-                let rotated_face_normal = Graphics.rotateAroundOriginByYX(face_normal, trig_vals)
-                let dot = Vector.dot(rotated_face_view, rotated_face_normal)
+                let face_view = Vector.add(obj.position, struct.faces[k][0])
+                let dot = Vector.dot(face_view, struct.faces[k][0])
                 if (dot < 0) {
+                    dot *= 1 / (Vector.length(face_view) * Vector.length(struct.faces[k][0]))
                     dot_edges.push([-dot, struct.faces[k][1]])
                 }
             }
@@ -287,21 +285,23 @@ export default class GameState {
             siny: Math.sin(this.rotation_y)
         }
 
+        // Direction of player in game space
+        let player_direction = Graphics.rotateAroundOriginByXY([0, 0, 1], trig_vals)
         // Velocity of player in game space
-        let player_velocity = Graphics.rotateAroundOriginByXY([0, 0, this.player_speed], trig_vals)
+        let player_velocity = Vector.scale(player_direction, this.player_speed)
 
         //Keyboard input
-        this.registerKeyboardInput(player_velocity)
+        this.registerKeyboardInput(player_direction)
 
         //Mouse input
-        this.registerMouseInput(player_velocity)
+        this.registerMouseInput(player_direction)
 
         // Some trignometric values are reversed for rendering
         trig_vals.siny *= -1, trig_vals.sinx *= -1
 
         // Background star calculations and rendering
         let rotated_stars = this.distant_stars.map((e) => Graphics.rotateAroundOriginByYX(e, trig_vals)).filter((e) => e[2] > 0)
-        this.current_stars = Graphics.applyPerspectiveProjection(rotated_stars, this.rtf, this.lbn, this.display_dimensions)
+        this.current_stars = Graphics.applyPerspectiveProjection(rotated_stars, this.rtf, this.lbn, this.display_dimensions, false)
         this.drawBackground()
 
         // Array for objects spawned during loop and objects to render after loop
@@ -386,7 +386,7 @@ export default class GameState {
                                     tag: "laser", 
                                     col: this.laser_colour,
                                     pos: obj.position,
-                                    vel: Vector.scale(obj.position, -this.laser_speed).map(e => e + (Vector.randomFloat() * 0.6)),
+                                    vel: Vector.scale(obj.position, -this.laser_speed).map(e => e + (Vector.randomFloat() * 0.7)),
                                     timer: 5,
                                     lock_tag: -1
                                 }))
@@ -423,7 +423,7 @@ export default class GameState {
                         this.game_objects[i].velocity = Vector.scale(new_missile_direction, this.player_missile_speed)
                     }
                 }
-                if (obj.tag == "health" || obj.tag == "ammo") {
+                else if (obj.tag == "health" || obj.tag == "ammo") {
                     if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), player_top, [0, 0, 0])) {
                         if (obj.tag == "health") {
                             this.player_health = Math.min(this.max_player_health, this.player_health + 5)
@@ -452,7 +452,7 @@ export default class GameState {
                 let missile_fired = this.game_objects.filter(e => e.lock_tag == obj.lock_tag).length > 1
                 let draw_locking_sqaure = !missile_fired && obj.lock_tag > 0
 
-                let apply_perspective = Graphics.applyPerspectiveProjection(rotated_vertices, this.rtf, this.lbn, this.display_dimensions)
+                let apply_perspective = Graphics.applyPerspectiveProjection(rotated_vertices, this.rtf, this.lbn, this.display_dimensions, true)
                 let perspective_centre = apply_perspective.shift()
 
                 let render_info = {
