@@ -36,13 +36,14 @@ export default class GameState {
         this.delta_time
 
         this.sensitivity = sens
-        this.speed_boost = 60
+        this.speed_boost = 50
 
         this.key_down_state = {
             "KeyW": false,
             "KeyS": false,
             "KeyQ": false,
-            "KeyE": false
+            "KeyE": false,
+            "KeyL": false
         }
         this.mouse_down_state = {
             "0": false,
@@ -79,16 +80,16 @@ export default class GameState {
         // Radar variables
         this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
         this.radar_radius = 90
-        this.radar_range = 1200
+        this.radar_range = 1800
         this.radar_points
 
         // Player laser variables
         this.fire_rate = 0.4
         this.fire_timer = this.fire_rate
-        this.max_shots = 20
+        this.max_shots = 25
         this.overheat_counter = 0
         this.overheat_active = false
-        this.laser_damage = 20
+        this.laser_damage = 25
         this.laser_speed = 6
         this.laser_colour = "#ff4242"
 
@@ -97,12 +98,11 @@ export default class GameState {
         this.lock_colour = "orange"
         this.locking_timer = this.locking_time
         this.player_missile_speed = 5
-        this.enemy_missile_speed = 3
+        this.enemy_missile_speed = 4
         this.missile_damage = 100
         this.missiles_left = 3
         this.missile_colour = "#f5f05b"
         this.max_missiles = this.missiles_left
-        this.just_fired = false
         this.locking_counter = 1
 
         // Enemy missile variables
@@ -123,7 +123,7 @@ export default class GameState {
 
         // Convoy stuff
         this.convoy_count = 0
-        this.convoy_speed = 0.8
+        this.convoy_speed = 0.6
         this.convoy_distance = 2000
         this.impact_timer = 0
 
@@ -138,11 +138,21 @@ export default class GameState {
             this.distant_stars.push([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()])
         }
 
+        // One time inputs
+        this.just_fired = false
+        this.just_locked = false
+
         // Loop relevant
         this.current_stars
         this.current_render
     }
     registerKeyboardInput(player_direction) {
+        // Pointer lock control
+        this.just_locked = (this.key_down_state["KeyL"] && this.just_locked) ? true : false
+        if (this.key_down_state["KeyL"] && !this.just_locked) {
+            this.changeLock()
+            this.just_locked = true
+        }
         // Acceleration and decceleration
         if (this.key_down_state["KeyW"] && !this.key_down_state["KeyS"]) {
             this.player_speed = Math.min(this.max_speed, this.player_speed + this.delta_speed * this.delta_time)
@@ -576,6 +586,9 @@ export default class GameState {
         return null
     }
     drawBackground() {
+        return null
+    }
+    changeLock() {
         return null
     }
     enter() {

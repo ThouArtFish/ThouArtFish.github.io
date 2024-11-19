@@ -101,6 +101,13 @@ function assignStateFunctions(state) {
         window.removeEventListener("mousedown", onMouseDown)
         window.removeEventListener("mouseup", onMouseUp)
     }
+    new_state.changeLock = () => {
+        if (document.pointerLockElement == canvas) {
+            document.exitPointerLock()
+        } else {
+            canvas.requestPointerLock()
+        }
+    }
     new_state.drawObject = () => {
         let render_object = new_state.current_render
         if (render_object.vertices.length == 0) {
