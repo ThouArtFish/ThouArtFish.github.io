@@ -1,19 +1,19 @@
 import Vector from "./Vector.js"
 
 export default class Graphics {
-    static rotateAroundOriginByYX(vertex, trig_edges) {
+    static rotateAroundOriginByYX(vertex, trig_vals) {
         let rotation_matrix = [
-            [trig_edges.cosy, 0, trig_edges.siny],
-            [trig_edges.siny * trig_edges.sinx, trig_edges.cosx, -trig_edges.sinx * trig_edges.cosy], 
-            [-trig_edges.siny * trig_edges.cosx, trig_edges.sinx, trig_edges.cosx * trig_edges.cosy]
+            [trig_vals.cosy, 0, trig_vals.siny],
+            [trig_vals.siny * trig_vals.sinx, trig_vals.cosx, -trig_vals.sinx * trig_vals.cosy], 
+            [-trig_vals.siny * trig_vals.cosx, trig_vals.sinx, trig_vals.cosx * trig_vals.cosy]
         ]
         return Vector.mat_mult(rotation_matrix, vertex)
     }
-    static rotateAroundOriginByXY(vertex, trig_edges) {
+    static rotateAroundOriginByXY(vertex, trig_vals) {
         let rotation_matrix = [
-            [trig_edges.cosy, trig_edges.sinx * trig_edges.siny, trig_edges.cosx * trig_edges.siny],
-            [0, trig_edges.cosx, -trig_edges.sinx],
-            [-trig_edges.siny, trig_edges.sinx * trig_edges.cosy, trig_edges.cosx * trig_edges.cosy]
+            [trig_vals.cosy, trig_vals.sinx * trig_vals.siny, trig_vals.cosx * trig_vals.siny],
+            [0, trig_vals.cosx, -trig_vals.sinx],
+            [-trig_vals.siny, trig_vals.sinx * trig_vals.cosy, trig_vals.cosx * trig_vals.cosy]
         ]
         return Vector.mat_mult(rotation_matrix, vertex)
     }
