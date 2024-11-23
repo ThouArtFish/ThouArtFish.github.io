@@ -174,9 +174,14 @@ function assignStateFunctions(state) {
         ctx.font = "30px mainfont"
         ctx.fillStyle = "white"
         ctx.fillText(
-            new_state.score.toString(),
+            "Wave " + new_state.wave_count.toString(),
             15,
             30
+        )
+        ctx.fillText(
+            new_state.score.toString(),
+            15,
+            60
         )
     
         ctx.font = "20px mainfont"
@@ -191,6 +196,9 @@ function assignStateFunctions(state) {
         ctx.closePath()
         ctx.fillStyle = "red"
         for (let point of new_state.radar_points) {
+            if (point.length < 2) {
+                continue
+            }
             ctx.beginPath()
             ctx.arc(point[0], point[1], 2, 0, Math.PI * 2)
             ctx.fill()

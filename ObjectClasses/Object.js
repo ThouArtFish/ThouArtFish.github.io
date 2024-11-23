@@ -3,11 +3,11 @@ import Vector from "../MethodClasses/Vector.js"
 
 export default class Object {
     static spawnIndividual(...args) {
-        const [{side, tag, struct_name="dot", vert=[], col, pos, vel, timer, health=1, fire_rate=0, missile_rate=0, lock_tag=-1}] = args
+        const [{side, tag, struct="dot", vert=[], col, pos, vel, timer, health=1, fire_rate=0, missile_rate=0, lock_tag=-1}] = args
         let game_object = {
             side: side,
             tag: tag,
-            structure_name: struct_name,
+            struct: struct,
             vertices: vert,
             colour: col,
             position: pos,
@@ -21,16 +21,16 @@ export default class Object {
         return game_object
     }
     static spawnConvoy(...args) {
-        let [{struct_name, count, rad, vel, centre, col}] = args
+        let [{struct, count, rad, vel, centre, col}] = args
         let convoy = []
         let missile_carrier = Math.floor(Math.random() * count)
         for (let i = 0; i < count; i++) {
             let angle = (Math.PI * 2 * i) / count
-            let centre_offset = Graphics.rotateAroundOriginByYX([0, 0, rad], {cosx: 1, sinx: 0, cosy: Math.cos(angle), siny: Math.sin(angle)})
+            let centre_offset = [rad * Math.sin(angle), 0, rad * Math.cos(angle)]
             convoy.push(this.spawnIndividual({
                 side: "enemy",
                 tag: "convoy", 
-                struct_name: struct_name, 
+                struct: struct, 
                 pos: Vector.add(centre, centre_offset), 
                 vel: vel, 
                 col: col, 
@@ -42,21 +42,21 @@ export default class Object {
         }
         return convoy
     }
-    static spawnDebris(structure, object, speed) {
+    static spawnDebris(obj, struct, speed) {
         let total_debris = []
-        for (let face_info of structure.faces) {
+        for (let face_info of struct.faces) {
             let debris_vertices = []
             for (let vertex_index of face_info[1]) {
-                debris_vertices.push(Vector.subtract(structure.vertices[vertex_index], face_info[0]))
+                debris_vertices.push(Vector.subtract(struct.vertices[vertex_index], face_info[0]))
             }
             total_debris.push(this.spawnIndividual({
                 side: "player",
                 tag: "debris", 
-                struct_name: "plane", 
+                struct: "plane", 
                 vert: debris_vertices,
-                pos: Vector.add(object.position, face_info[0]), 
+                pos: Vector.add(obj.position, face_info[0]), 
                 vel: Vector.scale(face_info[0], speed),
-                col: object.colour, 
+                col: obj.colour, 
                 timer: 2.5
             }))
         }

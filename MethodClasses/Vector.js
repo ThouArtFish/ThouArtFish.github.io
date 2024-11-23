@@ -11,8 +11,17 @@ export default class Vector {
     static length(v1) {
         return Math.sqrt(v1[0] ** 2 + v1[1] ** 2 + v1[2] ** 2)
     }
+    static length_sq(v1) {
+        return v1[0] ** 2 + v1[1] ** 2 + v1[2] ** 2
+    }
     static scale(v1, new_length) {
-        return v1.map(e => e * (new_length / Vector.length(v1)))
+        let x = new_length / Vector.length(v1)
+        return v1.map(e => e * x)
+    }
+    static angle(v1, v2) {
+        let dot = Vector.dot(v1, v2)
+        let prod = Vector.length(v1) * Vector.length(v2)
+        return dot / prod
     }
     static mat_mult(v3x3, v3x1) {
         return [
@@ -24,5 +33,8 @@ export default class Vector {
     static randomFloat() {
         let f = Math.random()
         return Math.random() > 0.5 ? -f : f
+    }
+    static lerp(a, b, t) {
+        return a * (1 - t) + b * t
     }
 }
