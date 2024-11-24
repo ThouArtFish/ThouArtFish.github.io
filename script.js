@@ -76,7 +76,11 @@ function onGameOverClick() {
         main_menu_state.enter()
     }
 }
-
+// Rgb to hex converter
+function rgb_to_hex(rgb) {
+    let hex = rgb.map(e => (e < 16 ? "0" : "") + (e.toString(16)))
+    return "#" + hex[0] + hex[1] + hex[2]
+}
 
 // Game state
 var game_state
@@ -111,8 +115,8 @@ function assignStateFunctions(state) {
     new_state.drawObject = () => {
         let render_object = new_state.current_render
         if (render_object.vertices.length == 0) {
-            let radius = Math.max(2, (1 - render_object.centre[2]) * 20)
-            ctx.fillStyle = render_object.colour
+            let radius = Vector.lerp(20, 2, render_object.centre[2])
+            ctx.fillStyle = rgb_to_hex(render_object.colour)
             ctx.beginPath()
             ctx.arc(render_object.centre[0], render_object.centre[1], radius, 0, Math.PI * 2)
             ctx.fill()
@@ -121,9 +125,7 @@ function assignStateFunctions(state) {
             ctx.lineWidth = 1
             ctx.strokeStyle = "black"
             for (let stuff of render_object.faces) {
-                let shaded_rgb = render_object.colour.map((e) => (Math.round(e * stuff[0]) < 16 ? "0" : "") + (Math.round(e * stuff[0]).toString(16)))
-                ctx.fillStyle = "#" + shaded_rgb[0] + shaded_rgb[1] + shaded_rgb[2]
-    
+                ctx.fillStyle = rgb_to_hex(render_object.colour.map(e => Math.round(e * stuff[0])))
                 let sequence = stuff[1]
                 ctx.beginPath()
                 ctx.moveTo(render_object.vertices[sequence[0]][0], render_object.vertices[sequence[0]][1])
@@ -158,7 +160,7 @@ function assignStateFunctions(state) {
     new_state.drawHUD = () => {
         ctx.font = "20px mainfont"
         ctx.lineWidth = 1
-        ctx.strokeStyle = "yellow"
+        ctx.strokeStyle = "#d10fc1"
         ctx.beginPath()
         ctx.moveTo(canvas.width/2, canvas.height/2 - 25)
         ctx.lineTo(canvas.width/2, canvas.height/2 - 8)
@@ -196,11 +198,12 @@ function assignStateFunctions(state) {
         ctx.closePath()
         ctx.fillStyle = "red"
         for (let point of new_state.radar_points) {
-            if (point.length < 2) {
+            if (point.length == 0) {
                 continue
             }
+            ctx.fillStyle = rgb_to_hex(point[1])
             ctx.beginPath()
-            ctx.arc(point[0], point[1], 2, 0, Math.PI * 2)
+            ctx.arc(point[0][0], point[0][1], 2, 0, Math.PI * 2)
             ctx.fill()
             ctx.closePath()
         }
@@ -358,13 +361,13 @@ function updateDisplay(timestamp) {
     if (end_state != 0) {
         current_state.exit() 
         switch (end_state) {
-            case "game_over":
+            case "game_over_state":
                 game_over_state.enter()
                 break
             case "main_menu_state":
                 main_menu_state.enter()
                 break
-            case "game":
+            case "game_main_state":
                 state.enter()
                 break
         }

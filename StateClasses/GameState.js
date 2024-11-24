@@ -17,7 +17,8 @@ export default class GameState {
             "KeyS": false,
             "KeyQ": false,
             "KeyE": false,
-            "KeyL": false
+            "KeyL": false,
+            "KeyM": false
         }
         this.mouse_down_state = {
             "0": false,
@@ -28,7 +29,7 @@ export default class GameState {
             side: "player",
             tag: "base",
             struct: "dodecahedron",
-            col: [242, 200, 85],
+            col: [250, 97, 245],
             pos: [-20, -20, 200],
             vel: [0, 0, 0],
             health: 100,
@@ -37,7 +38,7 @@ export default class GameState {
 
         // Graphics variables
         this.display_dimensions = display_dimensions
-        this.graphics = new Graphics({lbn: [-20, 20, 20], rtf: [20, -20, 5000]})
+        this.graphics = new Graphics({lbn: [-20, 20, 20], rtf: [20, -20, 10000]})
 
         // Rotation variables
         this.rotation_x = 0
@@ -63,8 +64,8 @@ export default class GameState {
         this.overheat_counter = 0
         this.overheat_active = false
         this.laser_damage = 25
-        this.laser_speed = 6.5
-        this.laser_colour = "#ff4242"
+        this.laser_speed = 7
+        this.laser_colour = [250, 15, 50]
 
         // Player missile variables
         this.locking_time = 3
@@ -74,7 +75,7 @@ export default class GameState {
         this.enemy_missile_speed = 4.5
         this.missile_damage = 100
         this.missiles_left = 3
-        this.missile_colour = "#f5f05b"
+        this.missile_colour = [252, 236, 13]
         this.max_missiles = this.missiles_left
         this.locking_counter = 1
 
@@ -82,10 +83,18 @@ export default class GameState {
         this.jam_timeout = 0.4
         this.jam_timer = this.jam_timeout
         this.enemy_missile_active = false
-        this.convoy_laser_spread = 0.6
-        this.guard_laser_spread = 0.2
+        this.convoy_laser_spread = 1
+        this.convoy_count = 0
+        this.convoy_speed = 0.6
+        this.convoy_distance = 3240
+        this.impact_timer = 0
+        this.guard_laser_spread = 0.4
         this.enemy_laser_damage = 5
         this.enemy_missile_damage = 10
+        this.guard_spawn_const = 25
+        this.guard_spawn_timer = this.guard_spawn_const - 10
+        this.guard_speed = 2
+        this.guard_spawn_distance = 2000
 
         // Player stuff
         this.player_health = 100
@@ -97,12 +106,6 @@ export default class GameState {
             "convoy": 50,
             "guard": 100
         }
-
-        // Convoy stuff
-        this.convoy_count = 0
-        this.convoy_speed = 0.6
-        this.convoy_distance = 2000
-        this.impact_timer = 0
 
         // Object types
         this.enemy_types = ["convoy", "guard"]
@@ -126,9 +129,6 @@ export default class GameState {
 
         // Progress trackers
         this.wave_count = 0
-        this.variable_min_max = {
-
-        }
     }
     registerKeyboardInput(player_direction) {
         // Pointer lock control
@@ -229,22 +229,33 @@ export default class GameState {
 
         // Fire tracking missile
         if (this.mouse_down_state["2"] && this.locking_timer < 0) {
-            this.missiles_left -= 1
-            this.game_objects.push(Object.spawnIndividual(
-                {
-                    side: "player",
-                    tag: "missile",
-                    col: this.missile_colour,
-                    pos: [0, 0, 0],
-                    vel: [0, 0, 0],
-                    timer: 20,
-                    lock_tag: this.locking_counter
-                }))
-            this.lock_colour = "orange"
-            this.locking_counter += 1
-            this.locking_timer = this.locking_time
-            this.just_fired = true
+            let obj = this.game_objects.find(e => e.lock_tag == this.locking_counter)
+            if (Vector.dot(obj.position, player_direction) > 0) {
+                this.missiles_left -= 1
+                this.game_objects.push(Object.spawnIndividual(
+                    {
+                        side: "player",
+                        tag: "missile",
+                        col: this.missile_colour,
+                        pos: [0, 0, 0],
+                        vel: [0, 0, 0],
+                        timer: 20,
+                        lock_tag: this.locking_counter
+                    }))
+                this.lock_colour = "orange"
+                this.locking_counter += 1
+                this.locking_timer = this.locking_time
+                this.just_fired = true
+            }
         }
+    }
+    calculateGuardVelocity(guard, player_direction) {
+        let dot = Vector.dot(player_direction, Vector.scale(guard.velocity, 1))
+        let d_sq = Vector.length_sq(guard.position)
+        if (d_sq < 2250000) {
+            return Vector.scale(Vector.verp(guard.velocity, player_direction.map(e => dot < 0 ? e : -e), 0.4 * this.delta_time), this.guard_speed)
+        }
+        return Vector.scale(guard.position, -this.guard_speed)
     }
     collisionDetection(position, top, bottom) {
         for (let k = 0; k < 3; k++) {
@@ -255,10 +266,8 @@ export default class GameState {
         return true
     }
     mainLoop() {
-        // Useful reference
-        let base = this.game_objects.find(e => e.tag == "base")
         // Reset radar points
-        this.radar_points = [this.graphics.generateRadarPoint(base.position, this.rotation_y, this.radar_radius, this.radar_range)]
+        this.radar_points = [this.graphics.generateRadarPoint(this.game_objects[0], this.rotation_y, this.radar_radius, this.radar_range)]
 
         // New convoy if previous is dead
         if (this.convoy_count == 0) {
@@ -269,17 +278,22 @@ export default class GameState {
                 this.guard_laser_spread = Vector.lerp(0.2, 0, t)
                 this.enemy_laser_damage = Vector.lerp(5, 10, t)
                 this.enemy_missile_damage = Vector.lerp(10, 20, t)
+                this.convoy_distance = Vector.lerp(3240, 2520, t)
+                let new_guard_spawn_constant = Vector.lerp(25, 15, t)
+                this.guard_spawn_timer = this.guard_spawn_timer == this.guard_spawn_const ? new_guard_spawn_constant : this.guard_spawn_timer
+                this.guard_spawn_const = new_guard_spawn_constant
             }
             this.convoy_count = Math.floor(Math.random() * 4) + 5
             let convoy_centre = Vector.scale([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()], this.convoy_distance)
-            let convoy_velocity = Vector.scale(Vector.subtract(base.position, convoy_centre), this.convoy_speed)
+            let convoy_velocity = Vector.scale(convoy_centre, -this.convoy_speed)
+            convoy_centre = Vector.add(convoy_centre, this.game_objects[0].position)
             let convoy = Object.spawnConvoy({
                 struct: "cube", 
                 count: this.convoy_count, 
                 rad: 200, 
                 vel: convoy_velocity, 
                 centre: convoy_centre,
-                col: [242, 24, 242]
+                col: [8, 185, 255]
             })
             this.game_objects.push(...convoy)
             this.impact_timer = this.convoy_distance / (this.convoy_speed * this.speed_boost)
@@ -290,8 +304,24 @@ export default class GameState {
             this.game_objects[0].health -= 50
             this.game_objects = this.game_objects.filter(e => e.tag != "convoy")
             this.convoy_count = 0
-            if (this.game_objects[0].health <= 0) {
-                return "game_over"
+        }
+        // Spawn guard
+        if (this.guard_spawn_timer < this.guard_spawn_const) {
+            this.guard_spawn_timer -= this.delta_time
+            if (this.guard_spawn_timer < 0) {
+                let guard_position = Vector.scale([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()], this.guard_spawn_distance)
+                this.game_objects.push(Object.spawnIndividual({
+                    side: "enemy",
+                    tag: "guard", 
+                    struct: "octahedron", 
+                    pos: guard_position, 
+                    vel: Vector.scale(guard_position, -this.guard_speed),
+                    col: [22, 250, 148],
+                    health: 150,
+                    fire_rate: 6,
+                    timer: 360
+                }))
+                this.guard_spawn_timer = this.guard_spawn_const
             }
         }
 
@@ -381,6 +411,10 @@ export default class GameState {
                 }
                 // Enemies
                 else {
+                    // Change guard velocity
+                    if (obj.tag == "guard") {
+                        this.game_objects[i].velocity = this.calculateGuardVelocity(obj, player_direction)
+                    }
                     // Collision detection with player projectiles
                     let top = Vector.add(obj.position, this.graphics.struct[obj.struct].bounding_box[0])
                     let bottom = Vector.add(obj.position, this.graphics.struct[obj.struct].bounding_box[1])
@@ -396,13 +430,14 @@ export default class GameState {
                     if (Vector.length_sq(obj.position) < 2250000) {
                         this.game_objects[i].fire_rate[0] -= this.delta_time
                         if (this.game_objects[i].fire_rate[0] < 0) {
+                            let laser_spread = obj.tag == "convoy" ? this.convoy_laser_spread : this.guard_laser_spread
                             spawned_objects.push(Object.spawnIndividual(
                                 {
                                     side: "enemy",
                                     tag: "laser", 
                                     col: this.laser_colour,
                                     pos: obj.position,
-                                    vel: Vector.scale(obj.position, -this.laser_speed).map(e => e + (Vector.randomFloat() * this.convoy_laser_spread)),
+                                    vel: Vector.scale(obj.position, -this.laser_speed).map(e => e + (Vector.randomFloat() * laser_spread)),
                                     timer: 5
                                 }))
                             this.game_objects[i].fire_rate[0] = Math.random() * obj.fire_rate[1]
@@ -453,7 +488,7 @@ export default class GameState {
             }
             // Create point on radar for various objects
             if (this.radar_types.includes(obj.tag)) {
-                this.radar_points.push(this.graphics.generateRadarPoint(obj.position, this.rotation_y, this.radar_radius, this.radar_range))
+                this.radar_points.push(this.graphics.generateRadarPoint(obj, this.rotation_y, this.radar_radius, this.radar_range))
             }
 
             //Arrays for info about faces and vertices
@@ -500,10 +535,6 @@ export default class GameState {
             }
         }
 
-        // Game ends if plyayer health hits 0
-        if (this.player_health <= 0) {
-            return "game_over"
-        }
 
         // Render all objects
         render_objects.sort((a, b) => b.centre[2] - a.centre[2])
@@ -518,6 +549,10 @@ export default class GameState {
             if (obj.tag == "convoy") {
                 this.convoy_count -= 1
             }
+            // New guard
+            if (obj.tag == "guard") {
+                this.guard_spawn_timer = obj.timer < 0 ? 0 : this.guard_spawn_timer - this.delta_time
+            }
             // Remove locking value from target obj once player missile is destroyed
             if (obj.tag == "missile" && obj.side == "player") {
                 let o = this.game_objects.findIndex((e) => e.lock_tag == obj.lock_tag)
@@ -529,9 +564,9 @@ export default class GameState {
             if (obj.timer > 0) {
                 // Increase score and spawn debris
                 this.score += this.score_template[obj.tag]
-                this.game_objects.push(...Object.spawnDebris(obj, this.graphics.struct[obj.struct], 0.2))
+                this.game_objects.push(...Object.spawnDebris(obj, this.graphics.struct[obj.struct], 0.3))
                 // Chance to drop cargo
-                if (Math.random() > 0.7) {
+                if (Math.random() > 0.7 && obj.tag != "guard") {
                     let type = Math.random() > 0.5 ? "health" : "ammo"
                     this.game_objects.push(Object.spawnIndividual({
                         side: "player",
@@ -551,6 +586,13 @@ export default class GameState {
         this.game_objects.push(...spawned_objects)
         // HUD is drawn on top
         this.drawHUD()
+        // Return stuff
+        if (this.player_health <= 0 || this.game_objects[0].health <= 0) {
+            return "game_over_state"
+        }
+        if (this.key_down_state["KeyM"]) {
+            return "upgrade_state"
+        }
         return 0
     }
     drawHUD() {

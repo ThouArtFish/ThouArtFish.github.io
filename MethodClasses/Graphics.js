@@ -63,8 +63,8 @@ export default class Graphics {
         }
         return [vertex_info, face_info]
     }
-    generateRadarPoint(game_point, rotation_y, radar_radius, radar_range) {
-        let d = game_point[0] ** 2 + game_point[2] ** 2
+    generateRadarPoint(obj, rotation_y, radar_radius, radar_range) {
+        let d = obj.position[0] ** 2 + obj.position[2] ** 2
         if (d > radar_range ** 2) {
             return []
         }
@@ -73,9 +73,9 @@ export default class Graphics {
             [0, 1, 0],
             [Math.sin(rotation_y), 0, Math.cos(rotation_y)]
         ]
-        let rotated_pos = Vector.mat_mult(rotation_around_y, game_point)
+        let rotated_pos = Vector.mat_mult(rotation_around_y, obj.position)
         let radar_point = [(rotated_pos[0] * radar_radius) / radar_range, (-rotated_pos[2] * radar_radius) / radar_range, 0]
-        return radar_point
+        return [radar_point, obj.colour]
     }
     applyPerspectiveProjection(vertices, display_dimensions, include_z) {
         let projected_vertices = []

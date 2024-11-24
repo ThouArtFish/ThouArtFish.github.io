@@ -37,4 +37,7 @@ export default class Vector {
     static lerp(a, b, t) {
         return a * (1 - t) + b * t
     }
+    static verp(v1, v2, t) {
+        return Vector.add(v1.map(e => e * (1 - t)), v2.map(e => e * t))
+    }
 }

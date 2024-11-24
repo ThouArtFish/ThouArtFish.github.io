@@ -57,7 +57,7 @@ export default class Object {
                 pos: Vector.add(obj.position, face_info[0]), 
                 vel: Vector.scale(face_info[0], speed),
                 col: obj.colour, 
-                timer: 2.5
+                timer: 5
             }))
         }
         return total_debris
