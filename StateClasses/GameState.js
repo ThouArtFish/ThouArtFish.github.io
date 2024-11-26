@@ -434,7 +434,7 @@ export default class GameState {
                     if (Vector.length_sq(obj.position) < 2250000) {
                         this.game_objects[i].fire_rate[0] -= this.delta_time
                         if (this.game_objects[i].fire_rate[0] < 0) {
-                            let laser_spread = obj.tag == "convoy" ? 0.4 : 0.7
+                            let laser_spread = obj.tag == "convoy" ? 1 : 0.7
                             spawned_objects.push(Object.spawnIndividual(
                                 {
                                     side: "enemy",
