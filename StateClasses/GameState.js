@@ -64,15 +64,14 @@ export default class GameState {
         this.overheat_counter = 0
         this.overheat_active = false
         this.laser_damage = 25
-        this.laser_speed = 7
+        this.laser_speed = 8
         this.laser_colour = [250, 15, 50]
 
         // Player missile variables
         this.locking_time = 3
         this.lock_colour = "orange"
         this.locking_timer = this.locking_time
-        this.player_missile_speed = 5.5
-        this.enemy_missile_speed = 4.5
+        this.missile_speed = 5
         this.missile_damage = 100
         this.missiles_left = 3
         this.missile_colour = [252, 236, 13]
@@ -83,23 +82,21 @@ export default class GameState {
         this.jam_timeout = 0.4
         this.jam_timer = this.jam_timeout
         this.enemy_missile_active = false
-        this.convoy_laser_spread = 1
         this.convoy_count = 0
         this.convoy_speed = 0.6
         this.convoy_distance = 3240
         this.impact_timer = 0
-        this.guard_laser_spread = 0.4
         this.enemy_laser_damage = 5
         this.enemy_missile_damage = 10
         this.guard_spawn_const = 25
         this.guard_spawn_timer = this.guard_spawn_const - 10
-        this.guard_speed = 2
         this.guard_spawn_distance = 2000
+        this.guard_count = 0
 
         // Player stuff
         this.player_health = 100
         this.player_hitbox_cargo = [25, 25, 25]
-        this.player_hitbox_projectile = [8, 8, 8]
+        this.player_hitbox_projectile = [10, 10, 10]
         this.max_player_health = this.player_health
         this.score = 0
         this.score_template = {
@@ -250,12 +247,18 @@ export default class GameState {
         }
     }
     calculateGuardVelocity(guard, player_direction) {
-        let dot = Vector.dot(player_direction, Vector.scale(guard.velocity, 1))
+        let dot = Vector.dot(player_direction, guard.velocity)
         let d_sq = Vector.length_sq(guard.position)
-        if (d_sq < 2250000) {
-            return Vector.scale(Vector.verp(guard.velocity, player_direction.map(e => dot < 0 ? e : -e), 0.4 * this.delta_time), this.guard_speed)
+        if (d_sq < 640000) {
+            return Vector.scale(Vector.verp(guard.velocity, player_direction.map(e => dot < 0 ? e : -e), 0.7 * this.delta_time), 1.7)
         }
-        return Vector.scale(guard.position, -this.guard_speed)
+        else {
+            if (dot > 0) {
+                return Vector.scale(guard.position, -2.6)
+            } else {
+                return Vector.scale(Vector.verp(guard.velocity, player_direction, 0.4 * this.delta_time), 2.6)
+            }
+        }
     }
     collisionDetection(position, top, bottom) {
         for (let k = 0; k < 3; k++) {
@@ -306,7 +309,7 @@ export default class GameState {
             this.convoy_count = 0
         }
         // Spawn guard
-        if (this.guard_spawn_timer < this.guard_spawn_const) {
+        if (this.guard_count < 3) {
             this.guard_spawn_timer -= this.delta_time
             if (this.guard_spawn_timer < 0) {
                 let guard_position = Vector.scale([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()], this.guard_spawn_distance)
@@ -315,13 +318,14 @@ export default class GameState {
                     tag: "guard", 
                     struct: "octahedron", 
                     pos: guard_position, 
-                    vel: Vector.scale(guard_position, -this.guard_speed),
+                    vel: [0, 0, 0],
                     col: [22, 250, 148],
                     health: 150,
-                    fire_rate: 6,
+                    fire_rate: 4,
                     timer: 360
                 }))
                 this.guard_spawn_timer = this.guard_spawn_const
+                this.guard_count += 1
             }
         }
 
@@ -407,7 +411,7 @@ export default class GameState {
                     if (jam_missiles && Vector.length(obj.position) < 50) {
                         this.game_objects[i].timer = 0
                     }
-                    this.game_objects[i].velocity = Vector.scale(obj.position, -this.enemy_missile_speed)
+                    this.game_objects[i].velocity = Vector.scale(obj.position, -this.missile_speed)
                 }
                 // Enemies
                 else {
@@ -430,7 +434,7 @@ export default class GameState {
                     if (Vector.length_sq(obj.position) < 2250000) {
                         this.game_objects[i].fire_rate[0] -= this.delta_time
                         if (this.game_objects[i].fire_rate[0] < 0) {
-                            let laser_spread = obj.tag == "convoy" ? this.convoy_laser_spread : this.guard_laser_spread
+                            let laser_spread = obj.tag == "convoy" ? 0.4 : 0.7
                             spawned_objects.push(Object.spawnIndividual(
                                 {
                                     side: "enemy",
@@ -471,7 +475,7 @@ export default class GameState {
                     if (o != -1) {
                         let tracked_object = this.game_objects[o]
                         let new_missile_direction = Vector.subtract(tracked_object.position, obj.position)
-                        this.game_objects[i].velocity = Vector.scale(new_missile_direction, this.player_missile_speed)
+                        this.game_objects[i].velocity = Vector.scale(new_missile_direction, this.missile_speed)
                     }
                 }
                 // Cargo collision checks
@@ -551,7 +555,8 @@ export default class GameState {
             }
             // New guard
             if (obj.tag == "guard") {
-                this.guard_spawn_timer = obj.timer < 0 ? 0 : this.guard_spawn_timer - this.delta_time
+                this.guard_count -= 1
+                this.guard_spawn_timer = obj.timer < 0 ? 0 : this.guard_spawn_timer
             }
             // Remove locking value from target obj once player missile is destroyed
             if (obj.tag == "missile" && obj.side == "player") {
