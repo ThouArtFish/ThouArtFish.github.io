@@ -62,6 +62,7 @@ export default class GameState {
         this.fire_timer = this.fire_rate
         this.max_shots = 25
         this.overheat_counter = 0
+        this.overheat_timer = 20
         this.overheat_active = false
         this.laser_damage = 25
         this.laser_speed = 8
@@ -98,17 +99,13 @@ export default class GameState {
         this.player_hitbox_cargo = [25, 25, 25]
         this.player_hitbox_projectile = [10, 10, 10]
         this.max_player_health = this.player_health
-        this.score = 0
-        this.score_template = {
-            "convoy": 50,
-            "guard": 100
-        }
 
         // Object types
         this.enemy_types = ["convoy", "guard"]
         this.projectile_types = ["missile", "laser"]
         this.cargo_types = ["health", "ammo"]
         this.radar_types = ["convoy", "guard", "missile"]
+        this.cargo_drop_rate = 0.7
 
         // Background starts
         this.distant_stars = []
@@ -126,6 +123,16 @@ export default class GameState {
 
         // Progress trackers
         this.wave_count = 0
+        this.kill_count = 0
+        this.game_duration = 0
+        this.score = 0
+        this.final_score = 0
+        this.upgrade_levels = [0, 0, 0, 0]
+        this.upgrade_menu_closed = false
+        this.score_template = {
+            "convoy": 50,
+            "guard": 100
+        }
     }
     registerKeyboardInput(player_direction) {
         // Pointer lock control
@@ -216,7 +223,7 @@ export default class GameState {
                 this.overheat_counter = Math.min(this.max_shots, this.overheat_counter + 1)
             }
             if (this.overheat_counter == this.max_shots) {
-                this.fire_timer = 20
+                this.fire_timer = this.overheat_timer
                 this.overheat_active = true
             }
         }
@@ -250,13 +257,13 @@ export default class GameState {
         let dot = Vector.dot(player_direction, guard.velocity)
         let d_sq = Vector.length_sq(guard.position)
         if (d_sq < 640000) {
-            return Vector.scale(Vector.verp(guard.velocity, player_direction.map(e => dot < 0 ? e : -e), 0.7 * this.delta_time), 1.7)
+            return Vector.scale(Vector.verp(guard.velocity, player_direction.map(e => dot < 0 ? e : -e), 0.7 * this.delta_time), 2)
         }
         else {
             if (dot > 0) {
-                return Vector.scale(guard.position, -2.6)
+                return Vector.scale(guard.position, -3.4)
             } else {
-                return Vector.scale(Vector.verp(guard.velocity, player_direction, 0.4 * this.delta_time), 2.6)
+                return Vector.scale(Vector.verp(guard.velocity, player_direction, 0.4 * this.delta_time), 3.4)
             }
         }
     }
@@ -269,9 +276,31 @@ export default class GameState {
         return true
     }
     mainLoop() {
+        // Increase timer counter
+        this.game_duration += this.delta_time
         // Reset radar points
         this.radar_points = [this.graphics.generateRadarPoint(this.game_objects[0], this.rotation_y, this.radar_radius, this.radar_range)]
 
+        // Apply upgrades
+        if (this.upgrade_menu_closed) {
+            this.upgrade_menu_closed = false
+            for (let i = 0; i < this.upgrade_levels.length; i++) {
+                switch (i) {
+                    case 0:
+                        this.fire_rate = Vector.lerp(0.4, 0.3, this.upgrade_levels[i] / 3)
+                        break
+                    case 1:
+                        this.overheat_timer = Vector.lerp(20, 12, this.upgrade_levels[i] / 3)
+                        break
+                    case 2:
+                        this.max_missiles = 3 + this.upgrade_levels[i]
+                        break
+                    case 3:
+                        this.cargo_drop_rate = Vector.lerp(0.7, 0.6, this.upgrade_levels[i] / 3)
+                        break
+                }
+            }
+        }
         // New convoy if previous is dead
         if (this.convoy_count == 0) {
             this.wave_count += 1
@@ -434,7 +463,7 @@ export default class GameState {
                     if (Vector.length_sq(obj.position) < 2250000) {
                         this.game_objects[i].fire_rate[0] -= this.delta_time
                         if (this.game_objects[i].fire_rate[0] < 0) {
-                            let laser_spread = obj.tag == "convoy" ? 1 : 0.7
+                            let laser_spread = obj.tag == "convoy" ? 1 : 0.2
                             spawned_objects.push(Object.spawnIndividual(
                                 {
                                     side: "enemy",
@@ -482,7 +511,7 @@ export default class GameState {
                 else if (this.cargo_types.includes(obj.tag)) {
                     if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), this.player_hitbox_cargo, [0, 0, 0])) {
                         if (obj.tag == "health") {
-                            this.player_health = Math.min(this.max_player_health, this.player_health + 5)
+                            this.player_health = Math.min(this.max_player_health, this.player_health + 10)
                         } else {
                             this.missiles_left = Math.min(this.max_missiles, this.missiles_left + 1)
                         }
@@ -549,6 +578,10 @@ export default class GameState {
         // Post mortem stuff
         let dead_objects = this.game_objects.filter(e => e.health <= 0 || e.timer <= 0)
         for (let obj of dead_objects) {
+            // Increase kill count
+            if (this.enemy_types.includes(obj.tag) && obj.health <= 0) {
+                this.kill_count += 1
+            }
             // Decrease convoy count if obj was a convoy unit
             if (obj.tag == "convoy") {
                 this.convoy_count -= 1
@@ -569,9 +602,10 @@ export default class GameState {
             if (obj.timer > 0) {
                 // Increase score and spawn debris
                 this.score += this.score_template[obj.tag]
+                this.final_score += this.score_template[obj.tag]
                 this.game_objects.push(...Object.spawnDebris(obj, this.graphics.struct[obj.struct], 0.3))
                 // Chance to drop cargo
-                if (Math.random() > 0.7 && obj.tag != "guard") {
+                if (Math.random() > this.cargo_drop_rate && obj.tag != "guard") {
                     let type = Math.random() > 0.5 ? "health" : "ammo"
                     this.game_objects.push(Object.spawnIndividual({
                         side: "player",
@@ -596,26 +630,9 @@ export default class GameState {
             return "game_over_state"
         }
         if (this.key_down_state["KeyM"]) {
+            this.key_down_state["KeyM"] = false
             return "upgrade_state"
         }
         return 0
-    }
-    drawHUD() {
-        return null
-    }
-    drawObject() {
-        return null
-    }
-    drawBackground() {
-        return null
-    }
-    changeLock() {
-        return null
-    }
-    enter() {
-        return null
-    }
-    exit() {
-        return null
     }
 }

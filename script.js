@@ -5,6 +5,7 @@ import GameState from "./StateClasses/GameState.js"
 import Graphics from "./MethodClasses/Graphics.js"
 import Object from "./ObjectClasses/Object.js"
 import GameOverState from "./StateClasses/GameOverState.js"
+import UpgradeState from "./StateClasses/UpgradeState.js"
 
 // Global constants
 const canvas = document.getElementById("display");
@@ -21,6 +22,7 @@ speed_icon.src = "images/speed.png"
 var last_time = 0
 var mouse_timer
 var current_state
+var current_state_name 
 
 
 // Website events
@@ -31,9 +33,18 @@ function mouseMovement(e) {
 }
 function mousePositionMainMenu(e) {
     main_menu_state.mouse_coords = [e.clientX, e.clientY]
+    main_menu_state.just_clicked = true
 }
 function mousePositionGameOver(e) {
     game_over_state.mouse_coords = [e.clientX, e.clientY]
+    game_over_state.just_clicked = true
+}
+function mousePositionUpgrade(e) {
+    upgrade_state.mouse_coords = [e.clientX, e.clientY]
+    upgrade_state.just_clicked = true
+}
+function exitUpgradeMenu(e) {
+    upgrade_state.leave = (e.code == "KeyM")
 }
 function onWindowResize(e) {
     canvas.width = window.innerWidth
@@ -53,29 +64,6 @@ function onMouseDown(e) {
 function onMouseUp(e) {
     game_state.mouse_down_state[String(e.button)] = false
 }
-function onMainMenuClick() {
-    let withinRange = (val, range) => (val >= range[0] && val <= range[1])
-    if (
-        withinRange(main_menu_state.mouse_coords[0], [main_menu_state.play_button.left, main_menu_state.play_button.right]) && 
-        withinRange(main_menu_state.mouse_coords[1], [main_menu_state.play_button.top, main_menu_state.play_button.bottom])
-    ) 
-    {
-        main_menu_state.exit()
-        game_state = assignStateFunctions(new GameState({display_dimensions: [canvas.width, canvas.height]}))
-        game_state.enter()
-    }
-}
-function onGameOverClick() {
-    let withinRange = (val, range) => (val >= range[0] && val <= range[1])
-    if (
-        withinRange(game_over_state.mouse_coords[0], [game_over_state.main_menu_button.left, game_over_state.main_menu_button.right]) && 
-        withinRange(game_over_state.mouse_coords[1], [game_over_state.main_menu_button.top, game_over_state.main_menu_button.bottom])
-    ) 
-    {
-        game_over_state.exit()
-        main_menu_state.enter()
-    }
-}
 // Rgb to hex converter
 function rgb_to_hex(rgb) {
     let hex = rgb.map(e => (e < 16 ? "0" : "") + (e.toString(16)))
@@ -88,6 +76,7 @@ function assignStateFunctions(state) {
     let new_state = state
     new_state.enter = () => {
         current_state = new_state
+        current_state_name = "game"
         canvas.style.cursor = "none"
         canvas.requestPointerLock()
         canvas.addEventListener("mousemove", mouseMovement)
@@ -285,33 +274,55 @@ function assignStateFunctions(state) {
 var game_over_state = new GameOverState({display_dimensions: [canvas.width, canvas.height]})
 game_over_state.enter = () => {
     current_state = game_over_state
-    canvas.addEventListener("mouseup", onGameOverClick)
-    canvas.addEventListener("mousemove", mousePositionGameOver)
+    current_state_name = "game_over"
+    game_over_state.death_stats[0].stat = String(game_state.wave_count - 1)
+    game_over_state.death_stats[1].stat = String(game_state.kill_count)
+    let t = Math.floor(game_state.game_duration)
+    game_over_state.death_stats[2].stat = String(Math.floor(t / 60)) + ":" + String(t % 60)
+    game_over_state.death_stats[3].stat = String(game_state.final_score)
+    canvas.addEventListener("mouseup", mousePositionGameOver)
 }
 game_over_state.exit = () => {
-    canvas.removeEventListener("mouseup", onGameOverClick)
-    canvas.removeEventListener("mousemove", mousePositionGameOver)
+    canvas.removeEventListener("mouseup", mousePositionGameOver)
 }
-game_over_state.mainLoop = () => {
-    ctx.beginPath()
+game_over_state.drawMain = () => {
+    ctx.translate(canvas.width/2, canvas.height/2)
     ctx.fillStyle = "red"
     ctx.fillRect(
-        game_over_state.main_menu_button.left, 
-        game_over_state.main_menu_button.top, 
-        game_over_state.main_menu_button.right - game_over_state.main_menu_button.left, 
-        game_over_state.main_menu_button.bottom - game_over_state.main_menu_button.top
+        game_over_state.main_menu_button.bottom_left[0], 
+        game_over_state.main_menu_button.top_right[1], 
+        game_over_state.main_menu_button.top_right[0] - game_over_state.main_menu_button.bottom_left[0], 
+        game_over_state.main_menu_button.bottom_left[1] - game_over_state.main_menu_button.top_right[1]
     )
     ctx.fillStyle = "black"
-    ctx.font = "20px mainfont"
-    ctx.fillText(game_over_state.main_menu_button.text, game_over_state.main_menu_button.left + 6, game_over_state.main_menu_button.top + 24, 90)
-    ctx.closePath()
-
-    ctx.beginPath()
+    ctx.font = "25px mainfont"
+    ctx.fillText(
+        game_over_state.main_menu_button.text, 
+        game_over_state.main_menu_button.bottom_left[0] + 11, 
+        game_over_state.main_menu_button.top_right[1] + 32, 
+    )
     ctx.fillStyle = "red"
     ctx.font = "80px mainfont"
-    ctx.fillText(game_over_state.title_card.text, game_over_state.title_card.left, game_over_state.title_card.top)
-    ctx.closePath()
-    return 0
+    ctx.fillText(
+        game_over_state.title_card.text,
+        game_over_state.title_card.left,
+        game_over_state.title_card.top
+    )
+    ctx.font = "30px mainfont"
+    ctx.fillText(
+        game_over_state.tribute,
+        100,
+        0
+    )
+    ctx.font = "25px mainfont"
+    for (let s of game_over_state.death_stats) {
+        ctx.fillText(
+            s.text + s.stat,
+            s.left,
+            s.top
+        )
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
 
 
@@ -319,35 +330,143 @@ game_over_state.mainLoop = () => {
 var main_menu_state = new MainMenuState({display_dimensions: [canvas.width, canvas.height]})
 main_menu_state.enter = () => {
     current_state = main_menu_state
-    canvas.addEventListener("mouseup", onMainMenuClick)
-    canvas.addEventListener("mousemove", mousePositionMainMenu)
+    current_state_name = "main_menu"
+    canvas.addEventListener("mouseup", mousePositionMainMenu)
 }
 main_menu_state.exit = () => {
-    canvas.removeEventListener("mouseup", onMainMenuClick)
-    canvas.removeEventListener("mousemove", mousePositionMainMenu)
+    canvas.removeEventListener("mouseup", mousePositionMainMenu)
 }
-main_menu_state.mainLoop = () => {
-    ctx.beginPath()
+main_menu_state.drawMain = () => {
+    ctx.translate(canvas.width/2, canvas.height/2)
     ctx.fillStyle = "red"
     ctx.fillRect(
-        main_menu_state.play_button.left, 
-        main_menu_state.play_button.top, 
-        main_menu_state.play_button.right - main_menu_state.play_button.left, 
-        main_menu_state.play_button.bottom - main_menu_state.play_button.top
+        main_menu_state.play_button.bottom_left[0], 
+        main_menu_state.play_button.top_right[1], 
+        main_menu_state.play_button.top_right[0] - main_menu_state.play_button.bottom_left[0], 
+        main_menu_state.play_button.bottom_left[1] - main_menu_state.play_button.top_right[1]
     )
     ctx.fillStyle = "black"
+    ctx.font = "25px mainfont"
+    ctx.fillText(
+        main_menu_state.play_button.text, 
+        main_menu_state.play_button.bottom_left[0] + 6,
+        main_menu_state.play_button.top_right[1] + 31, 
+    )
     ctx.font = "20px mainfont"
-    ctx.fillText(main_menu_state.play_button.text, main_menu_state.play_button.left + 6, main_menu_state.play_button.top + 24, 90)
-    ctx.closePath()
-
-    ctx.beginPath()
+    ctx.fillStyle = "#f143fa"
+    ctx.fillText(
+        "M1: Fire main gun, will overheat if used too much",
+        120,
+        -30
+    )
+    ctx.fillText(
+        "Q: Start tracking an enemy",
+        120,
+        -10
+    )
+    ctx.fillText(
+        "M2: Fire tracking missile when tracking square turns red",
+        120,
+        10
+    )
+    ctx.fillText(
+        "E: Destroy incoming missiles, limited range",
+        120,
+        30
+    )
+    ctx.fillText(
+        "W/S: Accelerate/Decelerate",
+        -470,
+        -30
+    )
+    ctx.fillText(
+        "M: Access upgrade menu, also pauses game",
+        -470,
+        -10
+    )
+    ctx.fillText(
+        "L: Lock mouse to centre of screen",
+        -470,
+        10
+    )
     ctx.fillStyle = "red"
+    ctx.font = "35px mainfont"
+    ctx.fillText(
+        "PROTECT your base  ///  DESTROY all enemies",
+        -300,
+        150
+    )
     ctx.font = "80px mainfont"
-    ctx.fillText(main_menu_state.title_card.text, main_menu_state.title_card.left, main_menu_state.title_card.top)
-    ctx.closePath()
-    return 0
+    ctx.fillText(
+        main_menu_state.title_card.text, 
+        main_menu_state.title_card.left, 
+        main_menu_state.title_card.top
+    )
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
 
+
+// Upgrade state
+var upgrade_state = new UpgradeState({display_dimensions: [canvas.width, canvas.height]})
+upgrade_state.enter = () => {
+    current_state = upgrade_state
+    current_state_name = "upgrade"
+    canvas.addEventListener("mouseup", mousePositionUpgrade)
+    window.addEventListener("keyup", exitUpgradeMenu)
+    upgrade_state.score = game_state.score
+}
+upgrade_state.exit = () => {
+    canvas.removeEventListener("mouseup", mousePositionUpgrade)
+    window.removeEventListener("keyup", exitUpgradeMenu)
+    game_state.score = upgrade_state.score
+    game_state.upgrade_levels = upgrade_state.upgrade_levels
+    game_state.upgrade_menu_closed = true
+}
+upgrade_state.drawMain = () => {
+    ctx.translate(canvas.width/2, canvas.height/2)
+    ctx.fillStyle = "#14f1f5"
+    ctx.font = "80px mainfont"
+    ctx.fillText(
+        upgrade_state.title_card.text,
+        upgrade_state.title_card.left,
+        upgrade_state.title_card.top
+    )
+    ctx.font = "25px mainfont"
+    ctx.fillText(
+        "CURRENT SCORE: " + String(upgrade_state.score),
+        upgrade_state.title_card.left,
+        upgrade_state.title_card.top + 50
+    )
+    for (let b of upgrade_state.upgrade_buttons) {
+        ctx.fillStyle = "red"
+        ctx.fillRect(
+            b.bottom_left[0],
+            b.top_right[1],
+            b.top_right[0] - b.bottom_left[0],
+            b.bottom_left[1] - b.top_right[1]
+        )
+        ctx.font = "25px mainfont"
+        ctx.fillStyle = "black"
+        ctx.fillText(
+            "LEVEL" + String(b.level),
+            b.bottom_left[0] + 8,
+            b.top_right[1] + 28
+        )
+        ctx.font = "20px mainfont"
+        ctx.fillStyle = "#14f1f5"
+        ctx.fillText(
+            b.text,
+            b.bottom_left[0],
+            b.top_right[1] - 18
+        )
+        ctx.fillText(
+            "COST: " + String(b.price),
+            b.bottom_left[0],
+            b.top_right[1] - 6
+        )
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+}
 
 // Main function that updates the display
 function updateDisplay(timestamp) {
@@ -367,8 +486,14 @@ function updateDisplay(timestamp) {
             case "main_menu_state":
                 main_menu_state.enter()
                 break
-            case "game_main_state":
-                state.enter()
+            case "upgrade_state": 
+                upgrade_state.enter()
+                break
+            case "game_state":
+                if (current_state_name != "upgrade") {
+                    game_state = assignStateFunctions(new GameState({display_dimensions: [canvas.width, canvas.height]}))
+                }
+                game_state.enter()
                 break
         }
     }
