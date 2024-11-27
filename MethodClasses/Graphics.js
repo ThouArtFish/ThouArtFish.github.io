@@ -77,15 +77,14 @@ export default class Graphics {
         let radar_point = [(rotated_pos[0] * radar_radius) / radar_range, (-rotated_pos[2] * radar_radius) / radar_range, 0]
         return [radar_point, obj.colour]
     }
-    applyPerspectiveProjection(vertices, display_dimensions, include_z) {
+    applyPerspectiveProjection(vertices, x_scale, y_scale, include_z) {
         let projected_vertices = []
         for (let i = 0; i < vertices.length; i++) {
             let vertex = vertices[i]
             let x = (2 * this.lbn[2] * vertex[0] - ((this.rtf[0] + this.lbn[0]) * vertex[2])) / ((this.rtf[0] - this.lbn[0]) * vertex[2])
             let y = (2 * this.lbn[2] * vertex[1] - ((this.rtf[1] + this.lbn[1]) * vertex[2])) / ((this.lbn[1] - this.rtf[1]) * vertex[2])
-            let x_scale = display_dimensions[0] / 2, y_scale = display_dimensions[1] / 2
-            x = x * x_scale + x_scale
-            y = y * y_scale + y_scale
+            x = x * x_scale
+            y = y * y_scale
             let projected_vertex = [x, y]
             if (include_z) {
                 let z = Math.max(Math.min(1, (this.rtf[2] * (vertex[2] - this.lbn[2])) / ((this.rtf[2] - this.lbn[2]) * vertex[2])), 0.01)

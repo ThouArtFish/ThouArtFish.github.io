@@ -8,25 +8,25 @@ export default class GameOverState {
             {   
                 top: -20,
                 left: -270,
-                text: "Waves defeated: ",
+                text: "Waves defeated:  ",
                 stat: ""
             },
             {   
                 top: 0,
                 left: -270,
-                text: "Enemies destroyed: ",
+                text: "Enemies destroyed:  ",
                 stat: ""
             },
             {   
                 top: 20,
                 left: -270,
-                text: "Time survived: ",
+                text: "Time survived:  ",
                 stat: ""
             },
             {   
                 top: 40,
                 left: -270,
-                text: "Total score: ",
+                text: "Total score:  ",
                 stat: ""
             },
         ]
@@ -44,9 +44,9 @@ export default class GameOverState {
     }
     tributeWriter() {
         let score = Number(this.death_stats[3].stat)
-        if (score < 2000) {
+        if (score < 2500) {
             return '"There  were  finer  pilots"'
-        } else if (score < 4000) {
+        } else if (score < 4500) {
             return '"Pretty  decent  shot"'
         } else {
             return '"Another  ace  among  the  stars"'

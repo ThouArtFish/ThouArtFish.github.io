@@ -23,6 +23,10 @@ var last_time = 0
 var mouse_timer
 var current_state
 var current_state_name 
+var background_stars = []
+while (background_stars.length < 40) {
+    background_stars.push([Vector.randomFloat() * (canvas.width / 2), Vector.randomFloat() * (canvas.height / 2)])
+}
 
 
 // Website events
@@ -64,10 +68,21 @@ function onMouseDown(e) {
 function onMouseUp(e) {
     game_state.mouse_down_state[String(e.button)] = false
 }
+
 // Rgb to hex converter
 function rgb_to_hex(rgb) {
     let hex = rgb.map(e => (e < 16 ? "0" : "") + (e.toString(16)))
     return "#" + hex[0] + hex[1] + hex[2]
+}
+// Draws background stars
+function drawBackgroundStars(stars) {
+    ctx.fillStyle = "white"
+    for (let s of stars) {
+        ctx.beginPath()
+        ctx.arc(s[0], s[1], 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.closePath()
+    }
 }
 
 // Game state
@@ -101,50 +116,44 @@ function assignStateFunctions(state) {
             canvas.requestPointerLock()
         }
     }
-    new_state.drawObject = () => {
-        let render_object = new_state.current_render
-        if (render_object.vertices.length == 0) {
-            let radius = Vector.lerp(20, 2, render_object.centre[2])
-            ctx.fillStyle = rgb_to_hex(render_object.colour)
-            ctx.beginPath()
-            ctx.arc(render_object.centre[0], render_object.centre[1], radius, 0, Math.PI * 2)
-            ctx.fill()
-            ctx.closePath()
-        } else {
-            ctx.lineWidth = 1
-            ctx.strokeStyle = "black"
-            for (let stuff of render_object.faces) {
-                ctx.fillStyle = rgb_to_hex(render_object.colour.map(e => Math.round(e * stuff[0])))
-                let sequence = stuff[1]
+    new_state.drawMain = () => {
+        ctx.translate(canvas.width/2, canvas.height/2)
+        drawBackgroundStars(new_state.current_stars)
+        for (let render_object of new_state.current_render) {
+            if (render_object.vertices.length == 0) {
+                let radius = Vector.lerp(20, 2, render_object.centre[2])
+                ctx.fillStyle = rgb_to_hex(render_object.colour)
                 ctx.beginPath()
-                ctx.moveTo(render_object.vertices[sequence[0]][0], render_object.vertices[sequence[0]][1])
-                for (let i = 1; i < sequence.length; i++) {
-                    ctx.lineTo(render_object.vertices[sequence[i]][0], render_object.vertices[sequence[i]][1])
-                }
-                ctx.closePath()
-                ctx.stroke()
+                ctx.arc(render_object.centre[0], render_object.centre[1], radius, 0, Math.PI * 2)
                 ctx.fill()
-            }
-    
-            if (render_object.lock_info[0]) {
-                ctx.strokeStyle = render_object.lock_info[1]
-                ctx.strokeRect(
-                    render_object.centre[0] - 30,
-                    render_object.centre[1] - 30,
-                    60,
-                    60
-                )
+                ctx.closePath()
+            } else {
+                ctx.lineWidth = 1
+                ctx.strokeStyle = "black"
+                for (let stuff of render_object.faces) {
+                    ctx.fillStyle = rgb_to_hex(render_object.colour.map(e => Math.round(e * stuff[0])))
+                    let sequence = stuff[1]
+                    ctx.beginPath()
+                    ctx.moveTo(render_object.vertices[sequence[0]][0], render_object.vertices[sequence[0]][1])
+                    for (let i = 1; i < sequence.length; i++) {
+                        ctx.lineTo(render_object.vertices[sequence[i]][0], render_object.vertices[sequence[i]][1])
+                    }
+                    ctx.closePath()
+                    ctx.stroke()
+                    ctx.fill()
+                }
+                if (render_object.lock_info[0]) {
+                    ctx.strokeStyle = render_object.lock_info[1]
+                    ctx.strokeRect(
+                        render_object.centre[0] - 30,
+                        render_object.centre[1] - 30,
+                        60,
+                        60
+                    )
+                }
             }
         }
-    }
-    new_state.drawBackground = () => {
-        ctx.fillStyle = "white"
-        for (let star of new_state.current_stars) {
-            ctx.beginPath()
-            ctx.arc(star[0], star[1], 1, 0, Math.PI * 2)
-            ctx.fill()
-            ctx.closePath()
-        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
     }
     new_state.drawHUD = () => {
         ctx.font = "20px mainfont"
@@ -263,7 +272,6 @@ function assignStateFunctions(state) {
             -new_state.radar_radius - 60, 
             -new_state.radar_radius - 25
         )
-    
         ctx.setTransform(1, 0, 0, 1, 0, 0)
     }
     return new_state
@@ -278,7 +286,7 @@ game_over_state.enter = () => {
     game_over_state.death_stats[0].stat = String(game_state.wave_count - 1)
     game_over_state.death_stats[1].stat = String(game_state.kill_count)
     let t = Math.floor(game_state.game_duration)
-    game_over_state.death_stats[2].stat = String(Math.floor(t / 60)) + ":" + String(t % 60)
+    game_over_state.death_stats[2].stat = String(Math.floor(t / 60)) + " : " + (String(t % 60).length == 1 ? "0" + String(t % 60) : String(t % 60))
     game_over_state.death_stats[3].stat = String(game_state.final_score)
     canvas.addEventListener("mouseup", mousePositionGameOver)
 }
@@ -287,6 +295,7 @@ game_over_state.exit = () => {
 }
 game_over_state.drawMain = () => {
     ctx.translate(canvas.width/2, canvas.height/2)
+    drawBackgroundStars(background_stars)
     ctx.fillStyle = "red"
     ctx.fillRect(
         game_over_state.main_menu_button.bottom_left[0], 
@@ -338,6 +347,7 @@ main_menu_state.exit = () => {
 }
 main_menu_state.drawMain = () => {
     ctx.translate(canvas.width/2, canvas.height/2)
+    drawBackgroundStars(background_stars)
     ctx.fillStyle = "red"
     ctx.fillRect(
         main_menu_state.play_button.bottom_left[0], 
@@ -355,46 +365,46 @@ main_menu_state.drawMain = () => {
     ctx.font = "20px mainfont"
     ctx.fillStyle = "#f143fa"
     ctx.fillText(
-        "M1: Fire main gun, will overheat if used too much",
-        120,
+        "M1:  Fire  main  gun,  will  overheat  if  used  too  much",
+        110,
         -30
     )
     ctx.fillText(
-        "Q: Start tracking an enemy",
-        120,
+        "Q:  Start  tracking  an  enemy",
+        110,
         -10
     )
     ctx.fillText(
-        "M2: Fire tracking missile when tracking square turns red",
-        120,
+        "M2: Fire  tracking  missile  when  tracking  square  turns  red",
+        110,
         10
     )
     ctx.fillText(
-        "E: Destroy incoming missiles, limited range",
-        120,
+        "E:  Destroy  incoming  missiles,  limited  range",
+        110,
         30
     )
     ctx.fillText(
-        "W/S: Accelerate/Decelerate",
-        -470,
+        "W/S:  Accelerate  /  Decelerate",
+        -480,
         -30
     )
     ctx.fillText(
-        "M: Access upgrade menu, also pauses game",
-        -470,
+        "M:  Access  upgrade  menu,  also  pauses  game",
+        -480,
         -10
     )
     ctx.fillText(
-        "L: Lock mouse to centre of screen",
-        -470,
+        "L:  Lock  mouse  to  centre  of  screen",
+        -480,
         10
     )
     ctx.fillStyle = "red"
     ctx.font = "35px mainfont"
     ctx.fillText(
-        "PROTECT your base  ///  DESTROY all enemies",
-        -300,
-        150
+        "PROTECT your  base  ///  DESTROY  all enemies",
+        -320,
+        160
     )
     ctx.font = "80px mainfont"
     ctx.fillText(

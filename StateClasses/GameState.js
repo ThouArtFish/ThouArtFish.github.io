@@ -36,6 +36,12 @@ export default class GameState {
             timer: 1
         })]
 
+        // Background stars
+        this.distant_stars = []
+        while (this.distant_stars.length < star_count) {
+            this.distant_stars.push([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()])
+        }
+
         // Graphics variables
         this.display_dimensions = display_dimensions
         this.graphics = new Graphics({lbn: [-20, 20, 20], rtf: [20, -20, 10000]})
@@ -106,12 +112,6 @@ export default class GameState {
         this.cargo_types = ["health", "ammo"]
         this.radar_types = ["convoy", "guard", "missile"]
         this.cargo_drop_rate = 0.7
-
-        // Background starts
-        this.distant_stars = []
-        while (this.distant_stars.length < star_count) {
-            this.distant_stars.push([Vector.randomFloat(), Vector.randomFloat(), Vector.randomFloat()])
-        }
 
         // One time inputs
         this.just_fired = false
@@ -404,9 +404,7 @@ export default class GameState {
 
         // Background star calculations and rendering
         let rotated_stars = this.distant_stars.map((e) => Vector.mat_mult(rotationYX, e)).filter((e) => e[2] > 0)
-        this.current_stars = this.graphics.applyPerspectiveProjection(rotated_stars, this.display_dimensions, false)
-        this.drawBackground()
-
+        this.current_stars = this.graphics.applyPerspectiveProjection(rotated_stars, this.display_dimensions[0] / 2, this.display_dimensions[1] / 2, false)
 
         // Array for objects spawned during loop and objects to render after loop
         let spawned_objects = []
@@ -550,7 +548,7 @@ export default class GameState {
                 // Projectiles are already rotated since they are rendered using the centre position variable
 
                 // Applies perspective projection to values
-                let apply_perspective = this.graphics.applyPerspectiveProjection(vertex_info, this.display_dimensions, true)
+                let apply_perspective = this.graphics.applyPerspectiveProjection(vertex_info, this.display_dimensions[0] / 2, this.display_dimensions[1] / 2, true)
                 let perspective_centre = apply_perspective.shift()
 
                 // Deciding whether to draw a "locking square" for objects being tracked
@@ -566,14 +564,6 @@ export default class GameState {
                 }
                 render_objects.push(render_info)
             }
-        }
-
-
-        // Render all objects
-        render_objects.sort((a, b) => b.centre[2] - a.centre[2])
-        for (let obj of render_objects) {
-            this.current_render = obj
-            this.drawObject()
         }
         // Post mortem stuff
         let dead_objects = this.game_objects.filter(e => e.health <= 0 || e.timer <= 0)
@@ -623,6 +613,9 @@ export default class GameState {
         this.game_objects = this.game_objects.filter(e => e.health > 0 && e.timer > 0)
         // Pushes objects spawned during game loop into game objects
         this.game_objects.push(...spawned_objects)
+        // Main render
+        this.current_render = render_objects.sort((a, b) => b.centre[2] - a.centre[2])
+        this.drawMain()
         // HUD is drawn on top
         this.drawHUD()
         // Return stuff
