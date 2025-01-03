@@ -44,9 +44,9 @@ export default class GameOverState {
     }
     tributeWriter() {
         let score = Number(this.death_stats[3].stat)
-        if (score < 2500) {
+        if (score < 3000) {
             return '"There  were  finer  pilots"'
-        } else if (score < 4500) {
+        } else if (score < 6000) {
             return '"Pretty  decent  shot"'
         } else {
             return '"Another  ace  among  the  stars"'

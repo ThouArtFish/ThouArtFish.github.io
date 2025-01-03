@@ -50,18 +50,24 @@ export default class GameState {
         this.rotation_x = 0
         this.rotation_y = 0
 
+        // Radar variables
+        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
+        this.radar_radius = 90
+        this.radar_range = 2000
+        this.radar_points
+
+        // Player health and hitbox
+        this.player_health = 100
+        this.player_hitbox_cargo = [25, 25, 25]
+        this.player_hitbox_projectile = [10, 10, 10]
+        this.max_player_health = this.player_health
+
         // Player speed variables
         this.player_speed = 1.6
         this.default_speed = this.player_speed
         this.delta_speed = 0.2
         this.max_speed = 2.8
         this.min_speed = 0
-
-        // Radar variables
-        this.radar_centre = [display_dimensions[0] / 2, display_dimensions[1] * 0.85]
-        this.radar_radius = 90
-        this.radar_range = 1800
-        this.radar_points
 
         // Player laser variables
         this.fire_rate = 0.4
@@ -70,7 +76,7 @@ export default class GameState {
         this.overheat_counter = 0
         this.overheat_timer = 20
         this.overheat_active = false
-        this.laser_damage = 25
+        this.laser_damage = 20
         this.laser_speed = 8
         this.laser_colour = [250, 15, 50]
 
@@ -95,16 +101,10 @@ export default class GameState {
         this.impact_timer = 0
         this.enemy_laser_damage = 5
         this.enemy_missile_damage = 10
-        this.guard_spawn_const = 25
+        this.guard_spawn_const = 30
         this.guard_spawn_timer = this.guard_spawn_const - 10
         this.guard_spawn_distance = 2000
         this.guard_count = 0
-
-        // Player stuff
-        this.player_health = 100
-        this.player_hitbox_cargo = [25, 25, 25]
-        this.player_hitbox_projectile = [10, 10, 10]
-        this.max_player_health = this.player_health
 
         // Object types
         this.enemy_types = ["convoy", "guard"]
@@ -133,6 +133,10 @@ export default class GameState {
             "convoy": 50,
             "guard": 100
         }
+
+        // Sounds
+        this.high_speed_playing = true
+        this.missile_alarm_playing = false
     }
     registerKeyboardInput(player_direction) {
         // Pointer lock control
@@ -210,6 +214,7 @@ export default class GameState {
         if (this.mouse_down_state["0"] && !this.overheat_active) {
             this.fire_timer -= this.delta_time
             if (this.fire_timer < 0) {
+                this.playSound("laser")
                 this.game_objects.push(Object.spawnIndividual(
                     {
                         side: "player",
@@ -236,6 +241,7 @@ export default class GameState {
             let obj = this.game_objects.find(e => e.lock_tag == this.locking_counter)
             if (Vector.dot(obj.position, player_direction) > 0) {
                 this.missiles_left -= 1
+                this.playSound("missile")
                 this.game_objects.push(Object.spawnIndividual(
                     {
                         side: "player",
@@ -263,7 +269,7 @@ export default class GameState {
             if (dot > 0) {
                 return Vector.scale(guard.position, -3.4)
             } else {
-                return Vector.scale(Vector.verp(guard.velocity, player_direction, 0.4 * this.delta_time), 3.4)
+                return Vector.scale(Vector.verp(guard.velocity, player_direction, 0.7 * this.delta_time), 3.4)
             }
         }
     }
@@ -311,7 +317,7 @@ export default class GameState {
                 this.enemy_laser_damage = Vector.lerp(5, 10, t)
                 this.enemy_missile_damage = Vector.lerp(10, 20, t)
                 this.convoy_distance = Vector.lerp(3240, 2520, t)
-                let new_guard_spawn_constant = Vector.lerp(25, 15, t)
+                let new_guard_spawn_constant = Vector.lerp(30, 2, t)
                 this.guard_spawn_timer = this.guard_spawn_timer == this.guard_spawn_const ? new_guard_spawn_constant : this.guard_spawn_timer
                 this.guard_spawn_const = new_guard_spawn_constant
             }
@@ -349,8 +355,8 @@ export default class GameState {
                     pos: guard_position, 
                     vel: [0, 0, 0],
                     col: [22, 250, 148],
-                    health: 150,
-                    fire_rate: 4,
+                    health: 100,
+                    fire_rate: 5,
                     timer: 360
                 }))
                 this.guard_spawn_timer = this.guard_spawn_const
@@ -363,6 +369,26 @@ export default class GameState {
 
         // Check if there are any incoming missiles
         this.enemy_missile_active = this.game_objects.filter(e => e.side == "enemy" && e.tag == "missile").length > 0
+        if (this.enemy_missile_active && !this.missile_alarm_playing) {
+            this.playSound("missile_incoming")
+            this.missile_alarm_playing = true
+        }
+        else if (!this.enemy_missile_active && this.missile_alarm_playing) {
+            this.stopSound("missile_incoming")
+            this.missile_alarm_playing = false
+        }
+
+        // Check if ambience sound should change
+        if (this.player_speed > this.default_speed && !this.high_speed_playing) {
+            this.stopSound("low_speed")
+            this.playSound("high_speed")
+            this.high_speed_playing = true
+        }
+        else if (this.player_speed <= this.default_speed && this.high_speed_playing) {
+            this.stopSound("high_speed")
+            this.playSound("low_speed")
+            this.high_speed_playing = false
+        }
 
         // Change in mouse position is translated into change int rotation around x and y axis
         let angle_x = Math.atan(this.delta_coords[1] * this.sensitivity)
@@ -423,22 +449,20 @@ export default class GameState {
             // Enemy objects
             if (obj.side == "enemy") {
                 // Enemy projectiles
-                if (obj.tag == "laser") {
+                if (obj.tag == "laser" || obj.tag == "missile") {
                     if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), this.player_hitbox_projectile, [0, 0, 0])) {
-                        this.player_health -= this.enemy_laser_damage
+                        this.player_health -= obj.tag == "laser" ? this.enemy_laser_damage : this.enemy_missile_damage
                         this.game_objects[i].timer = 0
+                        let hit_sounds = ["hit1", "hit2"]
+                        this.playSound(hit_sounds[Math.floor(Math.random() * 1.999)])
                     }
-                }
-                else if (obj.tag == "missile") {
-                    if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), this.player_hitbox_projectile, [0, 0, 0])) {
-                        this.player_health -= this.enemy_missile_damage
-                        this.game_objects[i].timer = 0
+                    if (obj.tag == "missile") {
+                        let jam_missiles = (this.jam_timer > 0) && (this.jam_timer < this.jam_timeout)
+                        if (jam_missiles && Vector.length_sq(obj.position) < 2500) {
+                            this.game_objects[i].timer = 0
+                        }
+                        this.game_objects[i].velocity = Vector.scale(obj.position, -this.missile_speed)
                     }
-                    let jam_missiles = (this.jam_timer > 0) && (this.jam_timer < this.jam_timeout)
-                    if (jam_missiles && Vector.length(obj.position) < 50) {
-                        this.game_objects[i].timer = 0
-                    }
-                    this.game_objects[i].velocity = Vector.scale(obj.position, -this.missile_speed)
                 }
                 // Enemies
                 else {
@@ -461,7 +485,7 @@ export default class GameState {
                     if (Vector.length_sq(obj.position) < 2250000) {
                         this.game_objects[i].fire_rate[0] -= this.delta_time
                         if (this.game_objects[i].fire_rate[0] < 0) {
-                            let laser_spread = obj.tag == "convoy" ? 1 : 0.2
+                            let laser_spread = obj.tag == "convoy" ? 1 : 0.3
                             spawned_objects.push(Object.spawnIndividual(
                                 {
                                     side: "enemy",
@@ -471,7 +495,7 @@ export default class GameState {
                                     vel: Vector.scale(obj.position, -this.laser_speed).map(e => e + (Vector.randomFloat() * laser_spread)),
                                     timer: 5
                                 }))
-                            this.game_objects[i].fire_rate[0] = Math.random() * obj.fire_rate[1]
+                            this.game_objects[i].fire_rate[0] = Math.random() * obj.fire_rate[1] + 1
                         }
                     }
                     // Missile carriers have a chance to fire a homing missile at the player
@@ -508,6 +532,7 @@ export default class GameState {
                 // Cargo collision checks
                 else if (this.cargo_types.includes(obj.tag)) {
                     if (this.collisionDetection(obj.position.map((e) => Math.abs(e)), this.player_hitbox_cargo, [0, 0, 0])) {
+                        this.playSound(obj.tag)
                         if (obj.tag == "health") {
                             this.player_health = Math.min(this.max_player_health, this.player_health + 10)
                         } else {
@@ -610,7 +635,7 @@ export default class GameState {
             }
         }
         // Filters out objects that are dead or have timed out
-        this.game_objects = this.game_objects.filter(e => e.health > 0 && e.timer > 0)
+        this.game_objects = this.game_objects.filter(e => e.tag == "base" || (e.health > 0 && e.timer > 0))
         // Pushes objects spawned during game loop into game objects
         this.game_objects.push(...spawned_objects)
         // Main render

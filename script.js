@@ -16,13 +16,24 @@ const health_icon = new Image()
 health_icon.src = "images/health.png"
 const speed_icon = new Image()
 speed_icon.src = "images/speed.png"
+const sounds = {
+    "laser": new Howl({src: ["audio/main_laser_fire.mp3"], volume: 0.7}),
+    "missile": new Howl({src: ["audio/missile_fire.mp3"]}),
+    "hit1": new Howl({src: ["audio/player_hit.mp3"]}),
+    "hit2": new Howl({src: ["audio/player_hit2.mp3"]}),
+    "health": new Howl({src: ["audio/health_up.wav"]}),
+    "ammo": new Howl({src: ["audio/missile_reload.mp3"]}),
+    "high_speed": new Howl({src: ["audio/high_speed.wav"], loop: true}),
+    "low_speed": new Howl({src: ["audio/low_speed.wav"], loop: true}),
+    "missile_incoming": new Howl({src: ["audio/missile_incoming.wav"], volume: 0.8, loop: true})
+}
 
 
 // global variables
 var last_time = 0
 var mouse_timer
 var current_state
-var current_state_name 
+var current_state_name
 var background_stars = []
 while (background_stars.length < 40) {
     background_stars.push([Vector.randomFloat() * (canvas.width / 2), Vector.randomFloat() * (canvas.height / 2)])
@@ -274,6 +285,8 @@ function assignStateFunctions(state) {
         )
         ctx.setTransform(1, 0, 0, 1, 0, 0)
     }
+    new_state.playSound = (name) => {sounds[name].play()}
+    new_state.stopSound = (name) => {sounds[name].stop()}
     return new_state
 }
 
